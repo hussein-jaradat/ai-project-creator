@@ -1,17 +1,37 @@
 import { cn } from "@/lib/utils";
 import { Bot, User } from "lucide-react";
 
+type MessageContent = 
+  | string
+  | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }>;
+
 interface ChatMessageProps {
   role: "user" | "assistant";
-  content: string;
+  content: MessageContent;
   isStreaming?: boolean;
 }
 
 export function ChatMessage({ role, content, isStreaming }: ChatMessageProps) {
   const isUser = role === "user";
   
+  // Extract text and images from content
+  let textContent = "";
+  let images: string[] = [];
+  
+  if (typeof content === "string") {
+    textContent = content;
+  } else {
+    content.forEach((part) => {
+      if (part.type === "text") {
+        textContent = part.text;
+      } else if (part.type === "image_url") {
+        images.push(part.image_url.url);
+      }
+    });
+  }
+  
   // Remove JSON blocks from display
-  const displayContent = content.replace(/```json[\s\S]*?```/g, "").trim();
+  const displayContent = textContent.replace(/```json[\s\S]*?```/g, "").trim();
 
   return (
     <div
@@ -34,6 +54,18 @@ export function ChatMessage({ role, content, isStreaming }: ChatMessageProps) {
         <p className="text-sm font-medium mb-1 text-muted-foreground">
           {isUser ? "You" : "ContentAI"}
         </p>
+        {images.length > 0 && (
+          <div className="flex gap-2 flex-wrap mb-2">
+            {images.map((img, i) => (
+              <img
+                key={i}
+                src={img}
+                alt={`Uploaded ${i + 1}`}
+                className="h-20 w-20 object-cover rounded-lg border border-border"
+              />
+            ))}
+          </div>
+        )}
         <div className="prose prose-sm dark:prose-invert max-w-none">
           <p className="whitespace-pre-wrap text-foreground leading-relaxed">
             {displayContent}
