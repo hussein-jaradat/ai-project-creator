@@ -1,13 +1,15 @@
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, X, Sparkles, Loader2 } from "lucide-react";
+import { Upload, X, Sparkles, Loader2, MessageSquare } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface ImageUploadStepProps {
   uploadedImages: string[];
+  projectDescription: string;
   brandStyle: string | null;
   suggestedLighting: string | null;
   onImagesChange: (images: string[]) => void;
+  onProjectDescriptionChange: (description: string) => void;
   onBrandAnalysis: (brandStyle: string, lighting: string) => void;
   onContinue: () => void;
   onBack: () => void;
@@ -15,9 +17,11 @@ interface ImageUploadStepProps {
 
 export function ImageUploadStep({
   uploadedImages,
+  projectDescription,
   brandStyle,
   suggestedLighting,
   onImagesChange,
+  onProjectDescriptionChange,
   onBrandAnalysis,
   onContinue,
   onBack,
@@ -185,6 +189,36 @@ export function ImageUploadStep({
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* Project Description */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="mt-6"
+            >
+              <div className="bg-gradient-to-br from-card to-card/50 border border-border/50 rounded-2xl p-6 backdrop-blur-sm">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <MessageSquare className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium">أخبرنا عن مشروعك</h3>
+                    <p className="text-sm text-muted-foreground">Tell us about your project idea</p>
+                  </div>
+                </div>
+                <textarea
+                  value={projectDescription}
+                  onChange={(e) => onProjectDescriptionChange(e.target.value)}
+                  placeholder="اكتب وصفاً لفكرتك أو منتجك... مثال: متجر عطور فاخرة يستهدف الشباب العصري، نريد محتوى راقي يعكس الأناقة والجرأة..."
+                  className="w-full h-32 bg-background/50 border border-border/50 rounded-xl p-4 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all placeholder:text-muted-foreground/60"
+                  dir="auto"
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  كلما كان الوصف أدق، كانت النتائج أفضل ✨
+                </p>
+              </div>
+            </motion.div>
           </motion.div>
 
           {/* AI Analysis */}

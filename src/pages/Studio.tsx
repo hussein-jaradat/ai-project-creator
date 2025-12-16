@@ -21,7 +21,7 @@ export default function Studio() {
   const [isRegeneratingCaption, setIsRegeneratingCaption] = useState(false);
 
   const buildPrompt = useCallback(() => {
-    const { idea, contentType, mood, platform, brandStyle, theme, uploadedImages } = state;
+    const { idea, contentType, mood, platform, brandStyle, theme, projectDescription } = state;
     
     const ideaMap = {
       "product-ad": "professional product advertisement",
@@ -49,6 +49,7 @@ export default function Studio() {
     prompt += ` Visual direction: ${themeMap[theme!]}.`;
     prompt += ` For ${platform}.`;
     if (brandStyle) prompt += ` Brand style: ${brandStyle}.`;
+    if (projectDescription) prompt += ` Project context: ${projectDescription}.`;
     prompt += ` Ultra high quality, professional marketing image.`;
     
     return prompt;
@@ -65,6 +66,7 @@ export default function Studio() {
           mood: state.mood,
           platform: state.platform,
           brandStyle: state.brandStyle,
+          projectDescription: state.projectDescription,
         }),
       });
       
@@ -76,7 +78,7 @@ export default function Studio() {
       console.error("Caption error:", error);
       return "تفاصيل بسيطة، حضور قوي — لأن الأناقة تبدأ من الاختيار الصحيح.";
     }
-  }, [state.mood, state.platform, state.brandStyle]);
+  }, [state.mood, state.platform, state.brandStyle, state.projectDescription]);
 
   const handleGenerate = useCallback(async () => {
     workflow.goToStep(5);
@@ -176,9 +178,11 @@ export default function Studio() {
       {state.step === 3 && (
         <ImageUploadStep
           uploadedImages={state.uploadedImages}
+          projectDescription={state.projectDescription}
           brandStyle={state.brandStyle}
           suggestedLighting={state.suggestedLighting}
           onImagesChange={workflow.setUploadedImages}
+          onProjectDescriptionChange={workflow.setProjectDescription}
           onBrandAnalysis={workflow.setBrandAnalysis}
           onContinue={() => workflow.nextStep()}
           onBack={() => workflow.prevStep()}
