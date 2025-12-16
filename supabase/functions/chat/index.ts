@@ -95,9 +95,24 @@ serve(async (req) => {
       console.error("Gemini API error:", response.status, errorText);
       
       if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "تم تجاوز الحد المسموح. يرجى المحاولة لاحقاً." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        // Return a friendly streaming response instead of error
+        const fallbackMessage = "أهلاً! يبدو أن هناك ضغط على الخدمة حالياً. يرجى الانتظار قليلاً ثم المحاولة مرة أخرى. 🙏";
+        const encoder = new TextEncoder();
+        const fallbackStream = new ReadableStream({
+          start(controller) {
+            const openAIFormat = {
+              choices: [{
+                delta: { content: fallbackMessage },
+                index: 0
+              }]
+            };
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(openAIFormat)}\n\n`));
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            controller.close();
+          }
+        });
+        return new Response(fallbackStream, {
+          headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
         });
       }
       
