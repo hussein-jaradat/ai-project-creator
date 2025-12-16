@@ -292,9 +292,9 @@ export default function Studio() {
         }
 
         const data = await response.json();
-        if (data.image) {
-          const caption = await generateCaption(data.image);
-          images.push({ url: data.image, caption });
+        if (data.imageUrl) {
+          const caption = await generateCaption(data.imageUrl);
+          images.push({ url: data.imageUrl, caption });
         }
       }
 
