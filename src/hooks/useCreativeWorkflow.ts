@@ -14,6 +14,7 @@ export interface CreativeState {
   mood: MoodType | null;
   platform: PlatformType | null;
   uploadedImages: string[];
+  projectDescription: string;
   brandStyle: string | null;
   suggestedLighting: string | null;
   theme: ThemeType | null;
@@ -36,6 +37,7 @@ const initialState: CreativeState = {
   mood: null,
   platform: null,
   uploadedImages: [],
+  projectDescription: "",
   brandStyle: null,
   suggestedLighting: null,
   theme: null,
@@ -66,6 +68,10 @@ export function useCreativeWorkflow() {
 
   const setUploadedImages = useCallback((images: string[]) => {
     setState(prev => ({ ...prev, uploadedImages: images }));
+  }, []);
+
+  const setProjectDescription = useCallback((projectDescription: string) => {
+    setState(prev => ({ ...prev, projectDescription }));
   }, []);
 
   const setBrandAnalysis = useCallback((brandStyle: string, suggestedLighting: string) => {
@@ -120,6 +126,7 @@ export function useCreativeWorkflow() {
     setMood,
     setPlatform,
     setUploadedImages,
+    setProjectDescription,
     setBrandAnalysis,
     setTheme,
     nextStep,

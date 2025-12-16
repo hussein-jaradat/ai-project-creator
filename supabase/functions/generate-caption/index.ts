@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { imageUrl, tone, mood, platform, brandStyle } = await req.json();
+    const { imageUrl, tone, mood, platform, brandStyle, projectDescription } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -39,7 +39,8 @@ serve(async (req) => {
 - أسلوب النص: ${tonePrompts[tone] || tonePrompts.marketing}
 - المزاج: ${moodArabic[mood] || "احترافي"}
 - المنصة: ${platform || "Instagram"}
-- ${brandStyle ? `هوية العلامة: ${brandStyle}` : ""}
+${brandStyle ? `- هوية العلامة: ${brandStyle}` : ""}
+${projectDescription ? `- وصف المشروع: ${projectDescription}` : ""}
 
 أمثلة على النصوص الجيدة:
 - "تفاصيل بسيطة، حضور قوي — لأن الأناقة تبدأ من الاختيار الصحيح."
