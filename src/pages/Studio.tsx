@@ -1,12 +1,13 @@
 import { useState, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles, FolderOpen } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { ReferencePanel } from "@/components/studio/ReferencePanel";
 import { ChatPanel } from "@/components/studio/ChatPanel";
 import { ActionPanel } from "@/components/studio/ActionPanel";
 import { GenerationResult } from "@/components/studio/GenerationResult";
+import { supabase } from "@/integrations/supabase/client";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 const GENERATE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-image`;
@@ -199,6 +200,59 @@ export default function Studio() {
     }
   }, [generationSummary]);
 
+  // Save content to database
+  const saveContent = useCallback(async (images: GeneratedImage[]) => {
+    try {
+      for (const img of images) {
+        // Upload image to storage
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.png`;
+        
+        // Convert base64 to blob if needed
+        let imageBlob: Blob;
+        if (img.url.startsWith("data:")) {
+          const response = await fetch(img.url);
+          imageBlob = await response.blob();
+        } else {
+          const response = await fetch(img.url);
+          imageBlob = await response.blob();
+        }
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("generated-images")
+          .upload(fileName, imageBlob, { contentType: "image/png" });
+
+        if (uploadError) {
+          console.error("Upload error:", uploadError);
+          continue;
+        }
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from("generated-images")
+          .getPublicUrl(fileName);
+
+        // Save to database
+        const { error: dbError } = await supabase
+          .from("generated_content")
+          .insert({
+            image_url: publicUrl,
+            caption: img.caption,
+            mood: generationSummary?.mood,
+            platform: generationSummary?.platform,
+            business_description: generationSummary?.business,
+          });
+
+        if (dbError) {
+          console.error("Database error:", dbError);
+        }
+      }
+      toast.success("تم حفظ المحتوى في المعرض");
+    } catch (error) {
+      console.error("Save error:", error);
+      toast.error("فشل في حفظ بعض المحتوى");
+    }
+  }, [generationSummary]);
+
   // Handle generation
   const handleGenerate = useCallback(async () => {
     if (!canGenerate || !generationSummary) {
@@ -251,13 +305,16 @@ export default function Studio() {
       setGeneratedImages(images);
       setShowResults(true);
       toast.success("تم إنشاء الصور بنجاح!");
+
+      // Save to database in background
+      saveContent(images);
     } catch (error) {
       console.error("Generation error:", error);
       toast.error(error instanceof Error ? error.message : "فشل في إنشاء الصور");
     } finally {
       setIsGenerating(false);
     }
-  }, [canGenerate, generationSummary, generateCaption]);
+  }, [canGenerate, generationSummary, generateCaption, saveContent]);
 
   // Handle regeneration
   const handleRegenerate = useCallback(() => {
@@ -282,7 +339,10 @@ export default function Studio() {
           <h1 className="text-xl font-bold neon-text">استوديو الإبداع</h1>
         </div>
 
-        <div className="w-20" /> {/* Spacer for centering */}
+        <Link to="/gallery" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+          <FolderOpen className="w-5 h-5" />
+          <span>المعرض</span>
+        </Link>
       </header>
 
       {/* Main Content - 3 Panels */}
