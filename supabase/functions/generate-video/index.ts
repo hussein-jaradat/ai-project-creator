@@ -121,9 +121,10 @@ serve(async (req) => {
     const accessToken = await getAccessToken(serviceAccountJson);
     console.log("Access token obtained successfully");
 
-    // Vertex AI Veo endpoint
+    // Vertex AI Veo endpoint - using correct model and action
     const location = "us-central1";
-    const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/veo-001:generateVideo`;
+    const model = "veo-2.0-generate-001"; // Correct Veo model name
+    const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${model}:predictLongRunning`;
 
     // Build the request payload
     const requestPayload: any = {
