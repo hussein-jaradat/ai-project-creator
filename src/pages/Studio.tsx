@@ -7,11 +7,13 @@ import { ReferencePanel } from "@/components/studio/ReferencePanel";
 import { ChatPanel } from "@/components/studio/ChatPanel";
 import { ActionPanel } from "@/components/studio/ActionPanel";
 import { GenerationResult } from "@/components/studio/GenerationResult";
+import { VideoReveal } from "@/components/studio/VideoReveal";
 import { supabase } from "@/integrations/supabase/client";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 const GENERATE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-image`;
 const CAPTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-caption`;
+const VIDEO_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-video`;
 
 interface Message {
   role: "user" | "assistant";
@@ -41,7 +43,9 @@ export default function Studio() {
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
+  const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
   const [showResults, setShowResults] = useState(false);
+  const [showVideoResults, setShowVideoResults] = useState(false);
   const [canGenerate, setCanGenerate] = useState(false);
   const [generationSummary, setGenerationSummary] = useState<GenerationSummary | null>(null);
   const [chatError, setChatError] = useState(false);
@@ -266,8 +270,8 @@ export default function Studio() {
     }
   }, [generationSummary]);
 
-  // Handle generation
-  const handleGenerate = useCallback(async () => {
+  // Handle image generation
+  const handleGenerateImages = useCallback(async () => {
     if (!canGenerate || !generationSummary) {
       toast.error("يرجى التحدث مع المساعد أولاً للحصول على الموافقة");
       return;
@@ -330,12 +334,84 @@ export default function Studio() {
     }
   }, [canGenerate, generationSummary, generateCaption, saveContent, referenceImages]);
 
+  // Handle video generation
+  const handleGenerateVideo = useCallback(async () => {
+    if (!canGenerate || !generationSummary) {
+      toast.error("يرجى التحدث مع المساعد أولاً للحصول على الموافقة");
+      return;
+    }
+
+    setIsGenerating(true);
+    setShowVideoResults(false);
+    setGeneratedVideo(null);
+
+    try {
+      toast.info("جارٍ إنشاء الفيديو... قد يستغرق هذا بضع دقائق");
+
+      const prompt = `Create a professional promotional video for ${generationSummary.business}. 
+        Style: ${generationSummary.mood}. 
+        Visual direction: ${generationSummary.visual_direction}. 
+        For ${generationSummary.platform}. 
+        Cinematic quality with smooth transitions.`;
+
+      const response = await fetch(VIDEO_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          referenceImages: referenceImages.filter(img => img.startsWith('data:')),
+          duration: 6,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "فشل في إنشاء الفيديو");
+      }
+
+      if (data.videoUrl) {
+        setGeneratedVideo(data.videoUrl);
+        setShowVideoResults(true);
+        toast.success("تم إنشاء الفيديو بنجاح!");
+      } else {
+        throw new Error("لم يتم إرجاع رابط الفيديو");
+      }
+    } catch (error) {
+      console.error("Video generation error:", error);
+      toast.error(error instanceof Error ? error.message : "فشل في إنشاء الفيديو");
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [canGenerate, generationSummary, referenceImages]);
+
+  // Handle generation based on selected action
+  const handleGenerate = useCallback(() => {
+    if (selectedAction === "video") {
+      handleGenerateVideo();
+    } else {
+      handleGenerateImages();
+    }
+  }, [selectedAction, handleGenerateVideo, handleGenerateImages]);
+
   // Handle regeneration
   const handleRegenerate = useCallback(() => {
     setShowResults(false);
     setGeneratedImages([]);
-    handleGenerate();
-  }, [handleGenerate]);
+    handleGenerateImages();
+  }, [handleGenerateImages]);
+
+  // Handle video regeneration
+  const handleRegenerateVideo = useCallback(() => {
+    setShowVideoResults(false);
+    setGeneratedVideo(null);
+    handleGenerateVideo();
+  }, [handleGenerateVideo]);
+
+  // Handle back from video
+  const handleBackFromVideo = useCallback(() => {
+    setShowVideoResults(false);
+  }, []);
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -413,6 +489,17 @@ export default function Studio() {
         onRegenerate={handleRegenerate}
         isRegenerating={isGenerating}
       />
+
+      {/* Video Results Modal */}
+      {showVideoResults && (
+        <div className="fixed inset-0 z-50 bg-background">
+          <VideoReveal
+            videoUrl={generatedVideo}
+            onRegenerate={handleRegenerateVideo}
+            onBack={handleBackFromVideo}
+          />
+        </div>
+      )}
     </div>
   );
 }
