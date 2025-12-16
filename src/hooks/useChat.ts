@@ -1,9 +1,13 @@
 import { useState, useCallback } from "react";
 import { toast } from "@/hooks/use-toast";
 
+type MessageContent = 
+  | string
+  | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }>;
+
 type Message = {
   role: "user" | "assistant";
-  content: string;
+  content: MessageContent;
 };
 
 type Summary = {
@@ -37,8 +41,28 @@ export function useChat() {
     }
   };
 
-  const sendMessage = useCallback(async (input: string) => {
-    const userMsg: Message = { role: "user", content: input };
+  const getDisplayContent = (content: MessageContent): string => {
+    if (typeof content === "string") return content;
+    const textPart = content.find((p) => p.type === "text");
+    return textPart && "text" in textPart ? textPart.text : "";
+  };
+
+  const sendMessage = useCallback(async (input: string, images?: string[]) => {
+    // Build message content
+    let userContent: MessageContent;
+    if (images && images.length > 0) {
+      userContent = [
+        { type: "text", text: input || "Here are my product images:" },
+        ...images.map((img) => ({
+          type: "image_url" as const,
+          image_url: { url: img },
+        })),
+      ];
+    } else {
+      userContent = input;
+    }
+
+    const userMsg: Message = { role: "user", content: userContent };
     setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
 
@@ -58,13 +82,19 @@ export function useChat() {
     };
 
     try {
+      // Prepare messages for API - convert to the format expected by the backend
+      const apiMessages = [...messages, userMsg].map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
       const resp = await fetch(CHAT_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages: [...messages, userMsg] }),
+        body: JSON.stringify({ messages: apiMessages }),
       });
 
       if (!resp.ok) {
@@ -137,5 +167,6 @@ export function useChat() {
     readyToGenerate,
     sendMessage,
     resetChat,
+    getDisplayContent,
   };
 }
