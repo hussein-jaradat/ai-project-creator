@@ -12,10 +12,10 @@ serve(async (req) => {
 
   try {
     const { prompt, mood, platform, business } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const GEMINI_API_KEY = Deno.env.get("gemini");
     
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (!GEMINI_API_KEY) {
+      throw new Error("Gemini API key is not configured");
     }
 
     console.log("Image generation request:", { prompt, mood, platform, business });
@@ -40,42 +40,32 @@ serve(async (req) => {
 
     console.log("Enhanced prompt:", enhancedPrompt);
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image-preview",
-        messages: [
-          {
-            role: "user",
-            content: enhancedPrompt,
-          },
-        ],
-        modalities: ["image", "text"],
-      }),
-    });
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: enhancedPrompt }] }],
+          generationConfig: {
+            responseModalities: ["TEXT", "IMAGE"]
+          }
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Image generation error:", response.status, errorText);
+      console.error("Gemini image generation error:", response.status, errorText);
       
       if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again." }), {
+        return new Response(JSON.stringify({ error: "تم تجاوز الحد المسموح. يرجى المحاولة لاحقاً." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
       
-      return new Response(JSON.stringify({ error: "Image generation failed" }), {
+      return new Response(JSON.stringify({ error: "فشل في توليد الصورة" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -84,16 +74,20 @@ serve(async (req) => {
     const data = await response.json();
     console.log("Image generation response received");
 
-    // Extract image from response
-    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    // Extract image from Gemini response
+    const parts = data.candidates?.[0]?.content?.parts;
+    const imagePart = parts?.find((p: { inlineData?: { mimeType: string; data: string } }) => p.inlineData);
     
-    if (!imageUrl) {
+    if (!imagePart?.inlineData) {
       console.error("No image in response:", JSON.stringify(data));
-      return new Response(JSON.stringify({ error: "No image generated" }), {
+      return new Response(JSON.stringify({ error: "لم يتم توليد صورة" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Convert to data URL
+    const imageUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
 
     return new Response(JSON.stringify({ 
       image: imageUrl,
@@ -103,7 +97,7 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("Generate image error:", error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "خطأ غير متوقع" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

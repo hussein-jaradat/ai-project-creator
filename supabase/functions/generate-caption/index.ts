@@ -13,9 +13,9 @@ serve(async (req) => {
   try {
     const { imageUrl, tone, mood, platform, brandStyle, projectDescription } = await req.json();
     
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    const GEMINI_API_KEY = Deno.env.get("gemini");
+    if (!GEMINI_API_KEY) {
+      throw new Error("Gemini API key is not configured");
     }
 
     const tonePrompts: Record<string, string> = {
@@ -49,38 +49,48 @@ ${projectDescription ? `- وصف المشروع: ${projectDescription}` : ""}
 
 اكتب نص واحد فقط بدون أي شرح أو علامات تنسيق.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: imageUrl 
-              ? [
-                  { type: "text", text: "اكتب نص إبداعي قصير لهذه الصورة:" },
-                  { type: "image_url", image_url: { url: imageUrl } }
-                ]
-              : "اكتب نص إبداعي قصير لصورة إعلانية احترافية."
+    // Build the request parts
+    const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [];
+    
+    if (imageUrl && imageUrl.startsWith("data:")) {
+      // Extract base64 data from data URL
+      const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (matches) {
+        parts.push({ text: "اكتب نص إبداعي قصير لهذه الصورة:" });
+        parts.push({ inlineData: { mimeType: matches[1], data: matches[2] } });
+      } else {
+        parts.push({ text: "اكتب نص إبداعي قصير لصورة إعلانية احترافية." });
+      }
+    } else if (imageUrl) {
+      // For URL-based images, we'll just use text prompt
+      parts.push({ text: `اكتب نص إبداعي قصير لصورة إعلانية احترافية. ${projectDescription || ""}` });
+    } else {
+      parts.push({ text: "اكتب نص إبداعي قصير لصورة إعلانية احترافية." });
+    }
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: "user", parts }],
+          generationConfig: {
+            maxOutputTokens: 150,
           }
-        ],
-        max_tokens: 150,
-      }),
-    });
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("AI API error:", response.status, errorText);
+      console.error("Gemini API error:", response.status, errorText);
       throw new Error("Failed to generate caption");
     }
 
     const data = await response.json();
-    const caption = data.choices?.[0]?.message?.content?.trim() || 
+    const caption = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 
       "تفاصيل بسيطة، حضور قوي — لأن الأناقة تبدأ من الاختيار الصحيح.";
 
     return new Response(JSON.stringify({ caption }), {
