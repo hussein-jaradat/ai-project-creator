@@ -51,8 +51,8 @@ export function useImageGeneration() {
         }
 
         const data = await resp.json();
-        if (data.image) {
-          results.push(data.image);
+        if (data.imageUrl) {
+          results.push(data.imageUrl);
           setImages([...results]);
         }
       } catch (error) {
