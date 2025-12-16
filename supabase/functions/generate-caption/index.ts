@@ -86,7 +86,12 @@ ${projectDescription ? `- وصف المشروع: ${projectDescription}` : ""}
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Gemini API error:", response.status, errorText);
-      throw new Error("Failed to generate caption");
+      
+      // Return fallback caption with 200 status for rate limits or other API errors
+      const fallbackCaption = "تفاصيل بسيطة، حضور قوي — لأن الأناقة تبدأ من الاختيار الصحيح.";
+      return new Response(JSON.stringify({ caption: fallbackCaption, fallback: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const data = await response.json();
