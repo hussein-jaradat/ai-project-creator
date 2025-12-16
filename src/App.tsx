@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import CreateProject from "./pages/CreateProject";
 import Dashboard from "./pages/Dashboard";
+import Studio from "./pages/Studio";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/create" element={<CreateProject />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/studio" element={<Studio />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
