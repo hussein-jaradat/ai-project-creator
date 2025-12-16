@@ -38,58 +38,63 @@ serve(async (req) => {
 
     console.log("Enhanced prompt:", enhancedPrompt);
 
-    // Try gemini-2.0-flash-exp with image generation using imageConfig
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ 
-            parts: [{ text: enhancedPrompt }] 
-          }],
-          generationConfig: {
-            responseModalities: ["IMAGE"],
-            imageConfig: {
-              aspectRatio: "1:1"
-            }
-          }
-        }),
-      }
-    );
+    // Try gemini-2.0-flash-preview-image-generation model
+    const modelsToTry = [
+      "gemini-2.0-flash-preview-image-generation",
+      "gemini-2.5-flash-preview-04-17",
+      "gemini-2.0-flash-exp"
+    ];
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Gemini error:", response.status, errorText);
+    for (const model of modelsToTry) {
+      console.log(`Trying model: ${model}`);
       
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "تم تجاوز الحد المسموح. يرجى المحاولة لاحقاً." }), {
-          status: 429,
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ 
+              parts: [{ text: enhancedPrompt }] 
+            }],
+            generationConfig: {
+              responseModalities: ["TEXT", "IMAGE"]
+            }
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Model ${model} error:`, response.status, errorText);
+        
+        if (response.status === 429) {
+          return new Response(JSON.stringify({ error: "تم تجاوز الحد المسموح. يرجى المحاولة لاحقاً." }), {
+            status: 429,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        
+        continue; // Try next model
+      }
+
+      const data = await response.json();
+      console.log(`Model ${model} response received`);
+
+      const parts = data.candidates?.[0]?.content?.parts;
+      const imagePart = parts?.find((p: { inlineData?: { mimeType: string; data: string } }) => p.inlineData);
+      
+      if (imagePart?.inlineData) {
+        const imageUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
+        console.log("Image generated successfully with model:", model);
+        
+        return new Response(JSON.stringify({ imageUrl, prompt: enhancedPrompt }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      
-      throw new Error(`API error: ${response.status} - ${errorText}`);
     }
 
-    const data = await response.json();
-    console.log("Response received");
-
-    // Extract image from response
-    const parts = data.candidates?.[0]?.content?.parts;
-    const imagePart = parts?.find((p: { inlineData?: { mimeType: string; data: string } }) => p.inlineData);
-    
-    if (!imagePart?.inlineData) {
-      console.error("No image in response:", JSON.stringify(data).substring(0, 500));
-      throw new Error("لم يتم توليد صورة");
-    }
-
-    const imageUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
-    console.log("Image generated successfully");
-
-    return new Response(JSON.stringify({ imageUrl, prompt: enhancedPrompt }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    throw new Error("جميع الموديلات فشلت في توليد الصورة");
 
   } catch (error) {
     console.error("Image generation error:", error);
