@@ -3,6 +3,7 @@ import { X, Download, Copy, RefreshCw, Check, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { ShareButtons } from "./ShareButtons";
 
 interface GeneratedImage {
   url: string;
@@ -145,6 +146,14 @@ export function GenerationResult({
                   />
                 </motion.button>
               ))}
+            </div>
+
+            {/* Share Buttons */}
+            <div className="mb-4">
+              <ShareButtons
+                imageUrl={selectedImage?.url || ""}
+                caption={selectedImage?.caption || ""}
+              />
             </div>
 
             {/* Actions */}
