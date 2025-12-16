@@ -62,6 +62,12 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        neon: {
+          purple: "hsl(var(--neon-purple))",
+          blue: "hsl(var(--neon-blue))",
+          cyan: "hsl(var(--neon-cyan))",
+          pink: "hsl(var(--neon-pink))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -69,11 +75,14 @@ export default {
         sm: "calc(var(--radius) - 4px)",
         xl: "calc(var(--radius) + 4px)",
         "2xl": "calc(var(--radius) + 8px)",
+        "3xl": "1.5rem",
       },
       boxShadow: {
-        soft: "var(--shadow-soft)",
         glow: "var(--shadow-glow)",
         card: "var(--shadow-card)",
+        "neon-purple": "var(--shadow-neon-purple)",
+        "neon-blue": "var(--shadow-neon-blue)",
+        "neon-cyan": "var(--shadow-neon-cyan)",
       },
       keyframes: {
         "accordion-down": {
@@ -88,11 +97,21 @@ export default {
           "0%": { backgroundPosition: "-200% 0" },
           "100%": { backgroundPosition: "200% 0" },
         },
+        "glow-pulse": {
+          "0%, 100%": { boxShadow: "0 0 20px hsl(270 91% 65% / 0.4)" },
+          "50%": { boxShadow: "0 0 40px hsl(270 91% 65% / 0.6)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "shimmer": "shimmer 2s linear infinite",
+        "glow-pulse": "glow-pulse 2s ease-in-out infinite",
+      },
+      backgroundImage: {
+        "gradient-neon": "var(--gradient-neon)",
+        "gradient-purple-blue": "var(--gradient-purple-blue)",
+        "gradient-dark": "var(--gradient-dark)",
       },
     },
   },

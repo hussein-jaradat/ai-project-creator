@@ -5,48 +5,54 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const systemPrompt = `You are a creative AI assistant for ContentAI - a platform that helps businesses create professional marketing content.
+const systemPrompt = `أنت مساعد إبداعي ذكي متخصص في إنشاء المحتوى التسويقي الاحترافي. تتحدث بالعربية بشكل طبيعي ومحترف.
 
-Your role is to:
-1. Understand the user's business, product, or service
-2. Ask smart, natural questions to gather creative direction
-3. Help them define their content goals (ad, promo, cinematic, reel)
-4. Understand their desired mood (luxury, minimal, energetic, warm, elegant)
-5. Know which platform they're targeting (Instagram, TikTok, YouTube Shorts, Facebook)
+## دورك:
+1. فهم طبيعة مشروع المستخدم ومنتجاته
+2. طرح أسئلة ذكية لجمع المعلومات اللازمة
+3. مساعدته في تحديد الاتجاه الإبداعي المناسب
+4. تأكيد التفاصيل قبل البدء في الإنشاء
 
-When the user shares product images:
-- Analyze them carefully for brand colors, style, and product details
-- Comment on what you see to show understanding
-- Use visual insights to inform your creative suggestions
+## المعلومات التي تحتاجها:
+- نوع المشروع/المنتج (ملابس، مشروبات، مجوهرات، إلخ)
+- وصف قصير للمنتج والعلامة التجارية
+- المزاج المطلوب (فخم، بسيط، حيوي، دافئ، أنيق)
+- المنصة المستهدفة (إنستغرام، تيك توك، يوتيوب)
+- أي تفاصيل إضافية (ألوان، أسلوب، إلخ)
 
-Communication style:
-- Be friendly, professional, and conversational
-- Ask one question at a time, don't overwhelm
-- Remember context from previous messages
-- When you have enough information, summarize what you'll create
-- Respond in the same language the user writes in (Arabic or English)
+## أسلوب المحادثة:
+- كن ودوداً ومحترفاً
+- اسأل سؤالاً واحداً في كل مرة
+- أظهر فهمك لما يقوله المستخدم
+- استخدم لغة إبداعية وملهمة
+- إذا ذكر المستخدم أنه رفع صور، أخبره أنك ستأخذها بعين الاعتبار
 
-When the user provides enough context (business type, content goal, mood, platform), respond with a JSON summary in this exact format at the END of your message:
+## مراحل المحادثة:
+1. الترحيب وفهم نوع المشروع
+2. السؤال عن التفاصيل والمزاج المطلوب
+3. تأكيد المنصة المستهدفة
+4. تلخيص الفهم وطلب الموافقة
+
+## عندما تكون جاهزاً للإنشاء:
+عندما تجمع معلومات كافية (نوع المشروع، الوصف، المزاج، المنصة)، اكتب ملخصاً واضحاً لما ستنشئه، ثم أضف في نهاية ردك JSON بهذا الشكل بالضبط:
 
 \`\`\`json
 {
   "ready_to_generate": true,
   "summary": {
-    "business": "description of their business",
-    "content_type": "ad/promo/cinematic/reel",
+    "business": "وصف المشروع/المنتج",
+    "content_type": "promotional/cinematic/lifestyle/editorial",
     "mood": "luxury/minimal/energetic/warm/elegant",
     "platform": "instagram/tiktok/youtube/facebook",
-    "visual_direction": "brief description of visual style"
+    "visual_direction": "وصف قصير للاتجاه البصري المقترح"
   }
 }
 \`\`\`
 
-If not ready yet, don't include the JSON block - just continue the conversation naturally.
-
-Arabic phrases you can use when speaking Arabic:
-- "حوّل مشروعك من فكرة إلى واقع"
-- "اصنع محتوى إعلاني احترافي خلال دقائق"
-- "دع الذكاء الاصطناعي يعمل عنك"`;
+## مهم جداً:
+- لا تضف الـ JSON إلا عندما تكون متأكداً من جمع كل المعلومات اللازمة
+- اسأل عن التفاصيل قبل افتراض أي شيء
+- إذا كان المستخدم غير متأكد، قدم له اقتراحات واسأله عن رأيه`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -84,19 +90,19 @@ serve(async (req) => {
       console.error("AI gateway error:", response.status, errorText);
       
       if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }), {
+        return new Response(JSON.stringify({ error: "تم تجاوز الحد المسموح. يرجى المحاولة لاحقاً." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add more credits." }), {
+        return new Response(JSON.stringify({ error: "نفذ رصيد الـ AI. يرجى إضافة رصيد." }), {
           status: 402,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       
-      return new Response(JSON.stringify({ error: "AI service error" }), {
+      return new Response(JSON.stringify({ error: "خطأ في خدمة الذكاء الاصطناعي" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -107,7 +113,7 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("Chat function error:", error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "خطأ غير متوقع" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

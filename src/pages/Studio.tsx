@@ -1,234 +1,342 @@
 import { useState, useCallback } from "react";
-import { useCreativeWorkflow, GeneratedImage, CaptionTone } from "@/hooks/useCreativeWorkflow";
-import { CreativeEntry } from "@/components/studio/CreativeEntry";
-import { IntentSetup } from "@/components/studio/IntentSetup";
-import { ImageUploadStep } from "@/components/studio/ImageUploadStep";
-import { ThemeDirection } from "@/components/studio/ThemeDirection";
-import { CreationMoment } from "@/components/studio/CreationMoment";
-import { ImageReveal } from "@/components/studio/ImageReveal";
-import { ImageFocusView } from "@/components/studio/ImageFocusView";
-import { VideoReveal } from "@/components/studio/VideoReveal";
+import { Link } from "react-router-dom";
+import { ArrowRight, Sparkles } from "lucide-react";
+import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { ReferencePanel } from "@/components/studio/ReferencePanel";
+import { ChatPanel } from "@/components/studio/ChatPanel";
+import { ActionPanel } from "@/components/studio/ActionPanel";
+import { GenerationResult } from "@/components/studio/GenerationResult";
 
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 const GENERATE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-image`;
 const CAPTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-caption`;
 
+interface Message {
+  role: "user" | "assistant";
+  content: string;
+}
+
+interface GeneratedImage {
+  url: string;
+  caption: string;
+}
+
+interface GenerationSummary {
+  business: string;
+  content_type: string;
+  mood: string;
+  platform: string;
+  visual_direction: string;
+}
+
+type ActionType = "image" | "video" | null;
+
 export default function Studio() {
-  const workflow = useCreativeWorkflow();
-  const { state } = workflow;
-  
-  const [focusedImageIndex, setFocusedImageIndex] = useState<number | null>(null);
-  const [isRegeneratingCaption, setIsRegeneratingCaption] = useState(false);
+  // State
+  const [referenceImages, setReferenceImages] = useState<string[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [selectedAction, setSelectedAction] = useState<ActionType>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
+  const [showResults, setShowResults] = useState(false);
+  const [canGenerate, setCanGenerate] = useState(false);
+  const [generationSummary, setGenerationSummary] = useState<GenerationSummary | null>(null);
 
-  const buildPrompt = useCallback(() => {
-    const { idea, contentType, mood, platform, brandStyle, theme, projectDescription } = state;
-    
-    const ideaMap = {
-      "product-ad": "professional product advertisement",
-      "cinematic": "cinematic photography",
-      "social-media": "social media content",
-      "visual-identity": "premium visual identity",
-    };
-    
-    const moodMap = {
-      luxury: "luxurious, high-end, elegant",
-      minimal: "minimal, clean, simple",
-      energetic: "energetic, vibrant, dynamic",
-      warm: "warm, inviting, cozy",
-    };
-    
-    const themeMap = {
-      "minimal-studio": "clean studio background, soft shadows, product focus",
-      "cinematic-dark": "dramatic lighting, deep shadows, moody atmosphere",
-      "lifestyle-daylight": "natural light, warm tones, lifestyle setting",
-      "luxury-editorial": "editorial style, elegant composition, luxury aesthetic",
-    };
+  // Parse AI response for generation readiness
+  const parseAIResponse = useCallback((content: string) => {
+    const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[1]);
+        if (parsed.ready_to_generate && parsed.summary) {
+          setCanGenerate(true);
+          setGenerationSummary(parsed.summary);
+          return content.replace(/```json[\s\S]*?```/, "").trim();
+        }
+      } catch (e) {
+        console.error("Failed to parse JSON:", e);
+      }
+    }
+    return content;
+  }, []);
 
-    let prompt = `Create a ${ideaMap[idea!]} image.`;
-    prompt += ` Style: ${contentType}, ${moodMap[mood!]}.`;
-    prompt += ` Visual direction: ${themeMap[theme!]}.`;
-    prompt += ` For ${platform}.`;
-    if (brandStyle) prompt += ` Brand style: ${brandStyle}.`;
-    if (projectDescription) prompt += ` Project context: ${projectDescription}.`;
-    prompt += ` Ultra high quality, professional marketing image.`;
+  // Stream chat with AI
+  const streamChat = useCallback(async (userMessage: string) => {
+    const allMessages = [...messages, { role: "user" as const, content: userMessage }];
     
-    return prompt;
-  }, [state]);
+    // Include reference images info in the message if available
+    let messageWithContext = userMessage;
+    if (referenceImages.length > 0 && messages.length === 0) {
+      messageWithContext = `[لدي ${referenceImages.length} صور مرفوعة كمراجع]\n\n${userMessage}`;
+    }
 
-  const generateCaption = useCallback(async (imageUrl: string, tone: CaptionTone): Promise<string> => {
+    const messagesForAPI = allMessages.map(m => ({
+      role: m.role,
+      content: m === allMessages[allMessages.length - 1] ? messageWithContext : m.content
+    }));
+
+    // Add context about selected action
+    if (selectedAction && messages.length === 0) {
+      messagesForAPI[messagesForAPI.length - 1].content = 
+        `[المستخدم اختار: إنشاء ${selectedAction === "image" ? "صورة" : "فيديو"}]\n\n${messagesForAPI[messagesForAPI.length - 1].content}`;
+    }
+
+    const response = await fetch(CHAT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: messagesForAPI }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to get response");
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error("No response body");
+
+    const decoder = new TextDecoder();
+    let assistantContent = "";
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const data = line.slice(6).trim();
+          if (data === "[DONE]") continue;
+
+          try {
+            const parsed = JSON.parse(data);
+            const delta = parsed.choices?.[0]?.delta?.content;
+            if (delta) {
+              assistantContent += delta;
+              // Update messages with streaming content
+              setMessages(prev => {
+                const newMessages = [...prev];
+                const lastMsg = newMessages[newMessages.length - 1];
+                if (lastMsg?.role === "assistant") {
+                  lastMsg.content = assistantContent;
+                  return [...newMessages];
+                }
+                return [...newMessages, { role: "assistant", content: assistantContent }];
+              });
+            }
+          } catch (e) {
+            // Skip invalid JSON
+          }
+        }
+      }
+    }
+
+    // Parse final response for generation readiness
+    const cleanedContent = parseAIResponse(assistantContent);
+    setMessages(prev => {
+      const newMessages = prev.filter(m => m.role !== "assistant" || m.content !== assistantContent);
+      return [...newMessages, { role: "assistant", content: cleanedContent }];
+    });
+
+    return cleanedContent;
+  }, [messages, referenceImages, selectedAction, parseAIResponse]);
+
+  // Handle sending message
+  const handleSendMessage = useCallback(async (message: string) => {
+    setMessages(prev => [...prev, { role: "user", content: message }]);
+    setIsLoading(true);
+
+    try {
+      await streamChat(message);
+    } catch (error) {
+      console.error("Chat error:", error);
+      toast.error("حدث خطأ في المحادثة");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [streamChat]);
+
+  // Handle action selection
+  const handleSelectAction = useCallback((action: ActionType) => {
+    setSelectedAction(action);
+    
+    // Auto-start conversation when action is selected
+    if (action && messages.length === 0) {
+      const greeting = action === "image" 
+        ? "مرحباً! أريد إنشاء صور احترافية لمشروعي."
+        : "مرحباً! أريد إنشاء فيديو إعلاني لمشروعي.";
+      handleSendMessage(greeting);
+    }
+  }, [messages.length, handleSendMessage]);
+
+  // Generate caption for image
+  const generateCaption = useCallback(async (imageUrl: string): Promise<string> => {
     try {
       const response = await fetch(CAPTION_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           imageUrl,
-          tone,
-          mood: state.mood,
-          platform: state.platform,
-          brandStyle: state.brandStyle,
-          projectDescription: state.projectDescription,
+          tone: "marketing",
+          mood: generationSummary?.mood || "luxury",
+          platform: generationSummary?.platform || "instagram",
+          projectDescription: generationSummary?.business || "",
         }),
       });
-      
+
       if (!response.ok) throw new Error("Caption generation failed");
-      
       const data = await response.json();
-      return data.caption || "تفاصيل بسيطة، حضور قوي — لأن الأناقة تبدأ من الاختيار الصحيح.";
+      return data.caption || "محتوى احترافي يعكس هوية علامتك التجارية";
     } catch (error) {
       console.error("Caption error:", error);
-      return "تفاصيل بسيطة، حضور قوي — لأن الأناقة تبدأ من الاختيار الصحيح.";
+      return "محتوى احترافي يعكس هوية علامتك التجارية";
     }
-  }, [state.mood, state.platform, state.brandStyle, state.projectDescription]);
+  }, [generationSummary]);
 
+  // Handle generation
   const handleGenerate = useCallback(async () => {
-    workflow.goToStep(5);
-    workflow.setGenerating(true, "analyzing");
+    if (!canGenerate || !generationSummary) {
+      toast.error("يرجى التحدث مع المساعد أولاً للحصول على الموافقة");
+      return;
+    }
+
+    setIsGenerating(true);
+    setShowResults(false);
 
     try {
-      const prompt = buildPrompt();
       const images: GeneratedImage[] = [];
+      const prompt = `Create a professional ${generationSummary.content_type} image for ${generationSummary.business}. 
+        Style: ${generationSummary.mood}. 
+        Visual direction: ${generationSummary.visual_direction}. 
+        For ${generationSummary.platform}. 
+        Ultra high quality marketing image.`;
 
       // Generate 4 images
       for (let i = 0; i < 4; i++) {
-        workflow.setGenerating(true, `Generating image ${i + 1}/4...`);
-        
+        toast.info(`جارٍ إنشاء الصورة ${i + 1} من 4...`);
+
         const response = await fetch(GENERATE_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             prompt: `${prompt} Variation ${i + 1}.`,
-            mood: state.mood,
-            platform: state.platform,
-            business: state.brandStyle || "premium brand",
+            mood: generationSummary.mood,
+            platform: generationSummary.platform,
+            business: generationSummary.business,
           }),
         });
 
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Generation failed");
+          const error = await response.json();
+          throw new Error(error.error || "Generation failed");
         }
 
         const data = await response.json();
         if (data.image) {
-          // Generate caption for each image
-          const caption = await generateCaption(data.image, "marketing");
-          images.push({
-            url: data.image,
-            caption,
-            captionTone: "marketing",
-          });
+          const caption = await generateCaption(data.image);
+          images.push({ url: data.image, caption });
         }
       }
 
       if (images.length === 0) {
-        throw new Error("No images generated");
+        throw new Error("لم يتم توليد أي صور");
       }
 
-      workflow.setGeneratedImages(images);
-      workflow.setGenerating(false);
-      workflow.goToStep(6);
-      toast.success("تم توليد الصور بنجاح!");
+      setGeneratedImages(images);
+      setShowResults(true);
+      toast.success("تم إنشاء الصور بنجاح!");
     } catch (error) {
       console.error("Generation error:", error);
-      workflow.setGenerating(false);
-      workflow.goToStep(4);
-      toast.error(error instanceof Error ? error.message : "فشل في توليد الصور");
+      toast.error(error instanceof Error ? error.message : "فشل في إنشاء الصور");
+    } finally {
+      setIsGenerating(false);
     }
-  }, [workflow, buildPrompt, state.mood, state.platform, state.brandStyle, generateCaption]);
+  }, [canGenerate, generationSummary, generateCaption]);
 
-  const handleRegenerateCaption = useCallback(async (tone: CaptionTone) => {
-    if (focusedImageIndex === null) return;
-    
-    setIsRegeneratingCaption(true);
-    const image = state.generatedImages[focusedImageIndex];
-    const newCaption = await generateCaption(image.url, tone);
-    workflow.updateImageCaption(focusedImageIndex, newCaption, tone);
-    setIsRegeneratingCaption(false);
-  }, [focusedImageIndex, state.generatedImages, generateCaption, workflow]);
-
+  // Handle regeneration
   const handleRegenerate = useCallback(() => {
-    workflow.setGeneratedImages([]);
+    setShowResults(false);
+    setGeneratedImages([]);
     handleGenerate();
-  }, [workflow, handleGenerate]);
+  }, [handleGenerate]);
 
-  // Render based on current step
   return (
-    <div className="min-h-screen bg-background">
-      {state.step === 1 && (
-        <CreativeEntry
-          selectedIdea={state.idea}
-          onSelectIdea={workflow.setIdea}
-          onContinue={() => workflow.nextStep()}
-        />
-      )}
+    <div className="h-screen flex flex-col bg-background">
+      {/* Header */}
+      <header className="flex-shrink-0 h-16 border-b border-border flex items-center justify-between px-6">
+        <Link to="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowRight className="w-5 h-5" />
+          <span>العودة</span>
+        </Link>
 
-      {state.step === 2 && (
-        <IntentSetup
-          contentType={state.contentType}
-          mood={state.mood}
-          platform={state.platform}
-          onSetContentType={workflow.setContentType}
-          onSetMood={workflow.setMood}
-          onSetPlatform={workflow.setPlatform}
-          onContinue={() => workflow.nextStep()}
-          onBack={() => workflow.prevStep()}
-        />
-      )}
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-gradient-purple-blue flex items-center justify-center">
+            <Sparkles className="w-4 h-4 text-primary-foreground" />
+          </div>
+          <h1 className="text-xl font-bold neon-text">استوديو الإبداع</h1>
+        </div>
 
-      {state.step === 3 && (
-        <ImageUploadStep
-          uploadedImages={state.uploadedImages}
-          projectDescription={state.projectDescription}
-          brandStyle={state.brandStyle}
-          suggestedLighting={state.suggestedLighting}
-          onImagesChange={workflow.setUploadedImages}
-          onProjectDescriptionChange={workflow.setProjectDescription}
-          onBrandAnalysis={workflow.setBrandAnalysis}
-          onContinue={() => workflow.nextStep()}
-          onBack={() => workflow.prevStep()}
-        />
-      )}
+        <div className="w-20" /> {/* Spacer for centering */}
+      </header>
 
-      {state.step === 4 && (
-        <ThemeDirection
-          selectedTheme={state.theme}
-          onSelectTheme={workflow.setTheme}
-          onContinue={handleGenerate}
-          onBack={() => workflow.prevStep()}
-        />
-      )}
+      {/* Main Content - 3 Panels */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Panel - Actions */}
+        <motion.aside
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="w-72 border-l border-border panel"
+        >
+          <ActionPanel
+            selectedAction={selectedAction}
+            onSelectAction={handleSelectAction}
+            isGenerating={isGenerating}
+            onGenerate={handleGenerate}
+            canGenerate={canGenerate}
+          />
+        </motion.aside>
 
-      {state.step === 5 && state.isGenerating && (
-        <CreationMoment phase={state.generationPhase} />
-      )}
+        {/* Center Panel - Chat */}
+        <motion.main
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex-1 border-l border-border"
+        >
+          <ChatPanel
+            messages={messages}
+            onSendMessage={handleSendMessage}
+            isLoading={isLoading}
+            referenceImages={referenceImages}
+          />
+        </motion.main>
 
-      {state.step === 6 && (
-        <ImageReveal
-          images={state.generatedImages}
-          onImageClick={setFocusedImageIndex}
-          onRegenerate={handleRegenerate}
-          onContinue={() => workflow.nextStep()}
-        />
-      )}
+        {/* Right Panel - References */}
+        <motion.aside
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="w-72 panel"
+        >
+          <ReferencePanel
+            images={referenceImages}
+            onImagesChange={setReferenceImages}
+          />
+        </motion.aside>
+      </div>
 
-      {state.step === 7 && (
-        <VideoReveal
-          videoUrl={state.generatedVideo}
-          onRegenerate={() => {}}
-          onBack={() => workflow.prevStep()}
-        />
-      )}
-
-      {/* Image Focus View Modal */}
-      {focusedImageIndex !== null && state.generatedImages[focusedImageIndex] && (
-        <ImageFocusView
-          image={state.generatedImages[focusedImageIndex]}
-          index={focusedImageIndex}
-          onClose={() => setFocusedImageIndex(null)}
-          onRegenerateCaption={handleRegenerateCaption}
-          isRegenerating={isRegeneratingCaption}
-        />
-      )}
+      {/* Generation Results Modal */}
+      <GenerationResult
+        images={generatedImages}
+        isOpen={showResults}
+        onClose={() => setShowResults(false)}
+        onRegenerate={handleRegenerate}
+        isRegenerating={isGenerating}
+      />
     </div>
   );
 }
