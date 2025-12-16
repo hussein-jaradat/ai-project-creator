@@ -42,92 +42,77 @@ serve(async (req) => {
 
     console.log("Enhanced prompt:", enhancedPrompt);
 
-    // Use Imagen 3 model via Gemini API
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          instances: [{ prompt: enhancedPrompt }],
-          parameters: { 
-            sampleCount: 1,
-            aspectRatio: "1:1"
+    // Try gemini-2.0-flash-preview-image-generation model
+    const modelsToTry = [
+      "gemini-2.0-flash-preview-image-generation",
+      "gemini-2.0-flash-exp"
+    ];
+
+    let imageUrl = null;
+    let lastError = null;
+
+    for (const model of modelsToTry) {
+      console.log(`Trying model: ${model}`);
+      
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ 
+                parts: [{ text: `Generate a high-quality professional marketing image: ${enhancedPrompt}` }] 
+              }],
+              generationConfig: {
+                responseModalities: ["IMAGE", "TEXT"]
+              }
+            }),
           }
-        }),
-      }
-    );
+        );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Imagen API error:", response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "تم تجاوز الحد المسموح. يرجى المحاولة لاحقاً." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      
-      // Try fallback to gemini-2.0-flash with image generation
-      console.log("Trying fallback to Gemini Flash image generation...");
-      
-      const fallbackResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: `Generate an image: ${enhancedPrompt}` }] }],
-            generationConfig: {
-              responseModalities: ["TEXT", "IMAGE"]
-            }
-          }),
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Model ${model} error:`, response.status, errorText);
+          
+          if (response.status === 429) {
+            return new Response(JSON.stringify({ error: "تم تجاوز الحد المسموح. يرجى المحاولة لاحقاً." }), {
+              status: 429,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          
+          lastError = errorText;
+          continue;
         }
-      );
-      
-      if (!fallbackResponse.ok) {
-        const fallbackError = await fallbackResponse.text();
-        console.error("Fallback also failed:", fallbackResponse.status, fallbackError);
-        throw new Error(`Image generation failed: ${response.status}`);
+
+        const data = await response.json();
+        console.log(`Model ${model} response received`);
+
+        // Extract image from response
+        const parts = data.candidates?.[0]?.content?.parts;
+        const imagePart = parts?.find((p: { inlineData?: { mimeType: string; data: string } }) => p.inlineData);
+        
+        if (imagePart?.inlineData) {
+          imageUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
+          console.log("Image generated successfully with model:", model);
+          break;
+        }
+      } catch (err) {
+        console.error(`Error with model ${model}:`, err);
+        lastError = err;
       }
-      
-      const fallbackData = await fallbackResponse.json();
-      const imagePart = fallbackData.candidates?.[0]?.content?.parts?.find(
-        (p: { inlineData?: { mimeType: string; data: string } }) => p.inlineData
-      );
-      
-      if (imagePart?.inlineData) {
-        const imageUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
-        return new Response(JSON.stringify({ imageUrl, prompt: enhancedPrompt }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      
-      throw new Error("No image generated from fallback");
     }
 
-    const data = await response.json();
-    console.log("Imagen response received");
-
-    // Extract image from Imagen response
-    const predictions = data.predictions;
-    if (!predictions || predictions.length === 0) {
-      console.error("No predictions in response:", JSON.stringify(data));
-      throw new Error("No image generated");
+    if (!imageUrl) {
+      console.error("All models failed. Last error:", lastError);
+      return new Response(JSON.stringify({ 
+        error: "توليد الصور غير متاح حالياً. تأكد من تفعيل Gemini API مع خطة مدفوعة أو استخدم Google AI Studio." 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
-
-    // Imagen returns base64 encoded images
-    const imageData = predictions[0].bytesBase64Encoded;
-    if (!imageData) {
-      console.error("No image data in prediction:", JSON.stringify(predictions[0]));
-      throw new Error("No image data in response");
-    }
-
-    const imageUrl = `data:image/png;base64,${imageData}`;
-    console.log("Image generated successfully");
 
     return new Response(JSON.stringify({ 
       imageUrl,
