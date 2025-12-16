@@ -191,8 +191,8 @@ export default function Studio() {
         }),
       });
 
-      if (!response.ok) throw new Error("Caption generation failed");
       const data = await response.json();
+      // Accept caption even if response status is error (fallback caption)
       return data.caption || "محتوى احترافي يعكس هوية علامتك التجارية";
     } catch (error) {
       console.error("Caption error:", error);
