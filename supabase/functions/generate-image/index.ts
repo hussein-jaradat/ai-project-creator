@@ -30,7 +30,7 @@ serve(async (req) => {
       cinematic: "cinematic lighting, dramatic shadows, film-like"
     };
 
-    let enhancedPrompt = `Professional marketing image for ${business}. ${prompt}`;
+    let enhancedPrompt = `Generate a professional marketing image for ${business}. ${prompt}`;
     if (mood && moodStyles[mood.toLowerCase()]) {
       enhancedPrompt += `. Style: ${moodStyles[mood.toLowerCase()]}`;
     }
@@ -38,18 +38,21 @@ serve(async (req) => {
 
     console.log("Enhanced prompt:", enhancedPrompt);
 
-    // Try imagen-3.0-generate-001 (newer version)
+    // Try gemini-2.0-flash-exp with image generation using imageConfig
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          instances: [{ prompt: enhancedPrompt }],
-          parameters: { 
-            sampleCount: 1,
-            aspectRatio: "1:1",
-            safetyFilterLevel: "block_few"
+          contents: [{ 
+            parts: [{ text: enhancedPrompt }] 
+          }],
+          generationConfig: {
+            responseModalities: ["IMAGE"],
+            imageConfig: {
+              aspectRatio: "1:1"
+            }
           }
         }),
       }
@@ -57,7 +60,7 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Imagen 3.0 error:", response.status, errorText);
+      console.error("Gemini error:", response.status, errorText);
       
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "تم تجاوز الحد المسموح. يرجى المحاولة لاحقاً." }), {
@@ -66,23 +69,22 @@ serve(async (req) => {
         });
       }
       
-      throw new Error(`Imagen error: ${response.status} - ${errorText}`);
+      throw new Error(`API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    console.log("Imagen response received:", JSON.stringify(data).substring(0, 200));
+    console.log("Response received");
 
-    const predictions = data.predictions;
-    if (!predictions || predictions.length === 0) {
-      throw new Error("No predictions in response");
+    // Extract image from response
+    const parts = data.candidates?.[0]?.content?.parts;
+    const imagePart = parts?.find((p: { inlineData?: { mimeType: string; data: string } }) => p.inlineData);
+    
+    if (!imagePart?.inlineData) {
+      console.error("No image in response:", JSON.stringify(data).substring(0, 500));
+      throw new Error("لم يتم توليد صورة");
     }
 
-    const imageData = predictions[0].bytesBase64Encoded;
-    if (!imageData) {
-      throw new Error("No image data in response");
-    }
-
-    const imageUrl = `data:image/png;base64,${imageData}`;
+    const imageUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
     console.log("Image generated successfully");
 
     return new Response(JSON.stringify({ imageUrl, prompt: enhancedPrompt }), {
