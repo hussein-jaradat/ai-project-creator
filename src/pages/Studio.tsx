@@ -44,6 +44,8 @@ export default function Studio() {
   const [showResults, setShowResults] = useState(false);
   const [canGenerate, setCanGenerate] = useState(false);
   const [generationSummary, setGenerationSummary] = useState<GenerationSummary | null>(null);
+  const [chatError, setChatError] = useState(false);
+  const [lastUserMessage, setLastUserMessage] = useState<string>("");
 
   // Parse AI response for generation readiness
   const parseAIResponse = useCallback((content: string) => {
@@ -152,16 +154,27 @@ export default function Studio() {
   const handleSendMessage = useCallback(async (message: string) => {
     setMessages(prev => [...prev, { role: "user", content: message }]);
     setIsLoading(true);
+    setChatError(false);
+    setLastUserMessage(message);
 
     try {
       await streamChat(message);
     } catch (error) {
       console.error("Chat error:", error);
+      setChatError(true);
       toast.error("حدث خطأ في المحادثة");
     } finally {
       setIsLoading(false);
     }
   }, [streamChat]);
+
+  // Retry last message
+  const handleRetry = useCallback(() => {
+    if (!lastUserMessage) return;
+    // Remove the last user message (will be re-added)
+    setMessages(prev => prev.slice(0, -1));
+    handleSendMessage(lastUserMessage);
+  }, [lastUserMessage, handleSendMessage]);
 
   // Handle action selection
   const handleSelectAction = useCallback((action: ActionType) => {
@@ -374,6 +387,8 @@ export default function Studio() {
             onSendMessage={handleSendMessage}
             isLoading={isLoading}
             referenceImages={referenceImages}
+            hasError={chatError}
+            onRetry={handleRetry}
           />
         </motion.main>
 
