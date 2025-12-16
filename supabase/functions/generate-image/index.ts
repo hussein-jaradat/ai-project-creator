@@ -12,51 +12,70 @@ serve(async (req) => {
 
   try {
     const { prompt, mood, platform, business } = await req.json();
-    const GEMINI_API_KEY = Deno.env.get("gemini");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
-    if (!GEMINI_API_KEY) {
-      throw new Error("Gemini API key is not configured");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
     console.log("Image generation request:", { prompt, mood, platform, business });
 
-    // Enhance the prompt with mood and style
+    // Mood styles for enhanced prompts
     const moodStyles: Record<string, string> = {
-      luxury: "luxurious, high-end, elegant lighting, gold accents, premium quality, sophisticated",
-      minimal: "minimalist, clean, simple, white space, modern, sleek",
-      energetic: "vibrant, dynamic, bold colors, action, movement, exciting",
-      warm: "warm lighting, cozy, inviting, soft tones, friendly, approachable",
+      luxury: "luxurious, premium, high-end, sophisticated, opulent",
+      minimal: "clean, simple, minimalist, modern, sleek",
+      energetic: "vibrant, dynamic, bold, exciting, lively",
+      warm: "cozy, inviting, comfortable, friendly, homey",
       elegant: "refined, graceful, timeless, classic beauty, subtle sophistication",
+      professional: "refined, graceful, timeless, classic beauty, subtle sophistication",
+      cinematic: "cinematic lighting, dramatic shadows, film-like quality, storytelling visuals"
     };
 
+    // Platform-specific styles
     const platformStyles: Record<string, string> = {
-      instagram: "square composition, Instagram-ready, social media optimized",
-      tiktok: "vertical composition, TikTok style, eye-catching",
-      youtube: "cinematic, 16:9 aspect ratio, YouTube thumbnail quality",
-      facebook: "professional, shareable, Facebook-optimized",
+      instagram: "square format, Instagram-ready, social media optimized",
+      tiktok: "vertical format, TikTok style, trending aesthetic",
+      youtube: "wide format, YouTube thumbnail style, attention-grabbing",
+      facebook: "versatile format, Facebook-friendly, shareable content"
     };
 
-    const enhancedPrompt = `Professional marketing image for ${business}. ${prompt}. Style: ${moodStyles[mood] || moodStyles.elegant}. ${platformStyles[platform] || ""}. Ultra high resolution, professional photography, commercial quality.`;
+    // Build enhanced prompt
+    let enhancedPrompt = `Professional marketing image for ${business}. ${prompt}`;
+    
+    if (mood && moodStyles[mood.toLowerCase()]) {
+      enhancedPrompt += `. Style: ${moodStyles[mood.toLowerCase()]}. `;
+    }
+    
+    if (platform && platformStyles[platform.toLowerCase()]) {
+      enhancedPrompt += platformStyles[platform.toLowerCase()];
+    }
+    
+    enhancedPrompt += " Ultra high resolution, professional photography, commercial quality.";
 
     console.log("Enhanced prompt:", enhancedPrompt);
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: enhancedPrompt }] }],
-          generationConfig: {
-            responseModalities: ["TEXT", "IMAGE"]
+    // Use Lovable AI Gateway with Nano Banana model for image generation
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-image-preview",
+        messages: [
+          {
+            role: "user",
+            content: enhancedPrompt
           }
-        }),
-      }
-    );
+        ],
+        modalities: ["image", "text"]
+      }),
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Gemini image generation error:", response.status, errorText);
+      console.error("Lovable AI Gateway error:", response.status, errorText);
       
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "تم تجاوز الحد المسموح. يرجى المحاولة لاحقاً." }), {
@@ -65,39 +84,39 @@ serve(async (req) => {
         });
       }
       
-      return new Response(JSON.stringify({ error: "فشل في توليد الصورة" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ error: "يرجى إضافة رصيد لحساب Lovable AI." }), {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      
+      throw new Error(`AI Gateway error: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log("Image generation response received");
+    console.log("Lovable AI response received");
 
-    // Extract image from Gemini response
-    const parts = data.candidates?.[0]?.content?.parts;
-    const imagePart = parts?.find((p: { inlineData?: { mimeType: string; data: string } }) => p.inlineData);
-    
-    if (!imagePart?.inlineData) {
+    // Extract image from Lovable AI Gateway response
+    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+
+    if (!imageUrl) {
       console.error("No image in response:", JSON.stringify(data));
-      return new Response(JSON.stringify({ error: "لم يتم توليد صورة" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      throw new Error("No image generated");
     }
 
-    // Convert to data URL
-    const imageUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
+    console.log("Image generated successfully");
 
     return new Response(JSON.stringify({ 
-      image: imageUrl,
+      imageUrl,
       prompt: enhancedPrompt 
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
   } catch (error) {
-    console.error("Generate image error:", error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "خطأ غير متوقع" }), {
+    console.error("Image generation error:", error);
+    return new Response(JSON.stringify({ error: "فشل في توليد الصورة" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
