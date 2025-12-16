@@ -11,14 +11,14 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, mood, platform, business } = await req.json();
+    const { prompt, mood, platform, business, referenceImages } = await req.json();
     const GEMINI_API_KEY = Deno.env.get("gemini");
     
     if (!GEMINI_API_KEY) {
       throw new Error("Gemini API key is not configured");
     }
 
-    console.log("Image generation request:", { prompt, mood, platform, business });
+    console.log("Image generation request:", { prompt, mood, platform, business, hasReferenceImages: referenceImages?.length > 0 });
 
     const moodStyles: Record<string, string> = {
       luxury: "luxurious, premium, high-end, sophisticated",
@@ -30,13 +30,51 @@ serve(async (req) => {
       cinematic: "cinematic lighting, dramatic shadows, film-like"
     };
 
-    let enhancedPrompt = `Generate a professional marketing image for ${business}. ${prompt}`;
+    // Build enhanced prompt with reference image instructions
+    let enhancedPrompt = "";
+    if (referenceImages && referenceImages.length > 0) {
+      enhancedPrompt = `Based on the reference product images provided, create a NEW professional marketing image that:
+- Matches the style, colors, and brand identity shown in the reference images
+- Features the SAME product/subject shown in the references
+- Maintains consistent visual aesthetics (lighting, composition, mood)
+- Is suitable for ${platform || 'social media'} marketing
+
+Product/Business: ${business}
+Specific request: ${prompt}`;
+    } else {
+      enhancedPrompt = `Generate a professional marketing image for ${business}. ${prompt}`;
+    }
+    
     if (mood && moodStyles[mood.toLowerCase()]) {
       enhancedPrompt += `. Style: ${moodStyles[mood.toLowerCase()]}`;
     }
     enhancedPrompt += ". Ultra high resolution, professional photography.";
 
     console.log("Enhanced prompt:", enhancedPrompt);
+
+    // Build content parts with text and reference images
+    const contentParts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [
+      { text: enhancedPrompt }
+    ];
+
+    // Add reference images to the request
+    if (referenceImages && referenceImages.length > 0) {
+      for (const imgDataUrl of referenceImages) {
+        // Extract base64 data and mime type from data URL
+        const matches = imgDataUrl.match(/^data:([^;]+);base64,(.+)$/);
+        if (matches) {
+          const mimeType = matches[1];
+          const base64Data = matches[2];
+          contentParts.push({
+            inlineData: {
+              mimeType,
+              data: base64Data
+            }
+          });
+          console.log(`Added reference image with mimeType: ${mimeType}`);
+        }
+      }
+    }
 
     // Try gemini-2.0-flash-preview-image-generation model
     const modelsToTry = [
@@ -54,9 +92,7 @@ serve(async (req) => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            contents: [{ 
-              parts: [{ text: enhancedPrompt }] 
-            }],
+            contents: [{ parts: contentParts }],
             generationConfig: {
               responseModalities: ["TEXT", "IMAGE"]
             }

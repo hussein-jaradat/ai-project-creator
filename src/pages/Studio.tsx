@@ -283,6 +283,7 @@ export default function Studio() {
             mood: generationSummary.mood,
             platform: generationSummary.platform,
             business: generationSummary.business,
+            referenceImages: referenceImages.filter(img => img.startsWith('data:')),
           }),
         });
 
@@ -314,7 +315,7 @@ export default function Studio() {
     } finally {
       setIsGenerating(false);
     }
-  }, [canGenerate, generationSummary, generateCaption, saveContent]);
+  }, [canGenerate, generationSummary, generateCaption, saveContent, referenceImages]);
 
   // Handle regeneration
   const handleRegenerate = useCallback(() => {
