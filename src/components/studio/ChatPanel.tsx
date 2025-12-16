@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Loader2, Bot, User, Sparkles } from "lucide-react";
+import { Send, Loader2, Bot, User, Sparkles, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,11 +14,13 @@ interface ChatPanelProps {
   onSendMessage: (message: string) => void;
   isLoading: boolean;
   referenceImages: string[];
+  hasError?: boolean;
+  onRetry?: () => void;
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
-export function ChatPanel({ messages, onSendMessage, isLoading, referenceImages }: ChatPanelProps) {
+export function ChatPanel({ messages, onSendMessage, isLoading, referenceImages, hasError, onRetry }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -140,6 +142,26 @@ export function ChatPanel({ messages, onSendMessage, isLoading, referenceImages 
                 <span className="text-sm text-muted-foreground">يفكر...</span>
               </div>
             </div>
+          </motion.div>
+        )}
+
+        {/* Error with Retry Button */}
+        {hasError && !isLoading && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col items-center gap-3 py-4"
+          >
+            <p className="text-sm text-destructive">حدث خطأ في المحادثة</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRetry}
+              className="gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              إعادة المحاولة
+            </Button>
           </motion.div>
         )}
 
