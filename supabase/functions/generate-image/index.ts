@@ -12,10 +12,10 @@ serve(async (req) => {
 
   try {
     const { prompt, mood, platform, business } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const GEMINI_API_KEY = Deno.env.get("gemini");
     
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (!GEMINI_API_KEY) {
+      throw new Error("Gemini API key is not configured");
     }
 
     console.log("Image generation request:", { prompt, mood, platform, business });
@@ -31,14 +31,6 @@ serve(async (req) => {
       cinematic: "cinematic lighting, dramatic shadows, film-like quality, storytelling visuals"
     };
 
-    // Platform-specific styles
-    const platformStyles: Record<string, string> = {
-      instagram: "square format, Instagram-ready, social media optimized",
-      tiktok: "vertical format, TikTok style, trending aesthetic",
-      youtube: "wide format, YouTube thumbnail style, attention-grabbing",
-      facebook: "versatile format, Facebook-friendly, shareable content"
-    };
-
     // Build enhanced prompt
     let enhancedPrompt = `Professional marketing image for ${business}. ${prompt}`;
     
@@ -46,36 +38,31 @@ serve(async (req) => {
       enhancedPrompt += `. Style: ${moodStyles[mood.toLowerCase()]}. `;
     }
     
-    if (platform && platformStyles[platform.toLowerCase()]) {
-      enhancedPrompt += platformStyles[platform.toLowerCase()];
-    }
-    
     enhancedPrompt += " Ultra high resolution, professional photography, commercial quality.";
 
     console.log("Enhanced prompt:", enhancedPrompt);
 
-    // Use Lovable AI Gateway with Nano Banana model for image generation
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image-preview",
-        messages: [
-          {
-            role: "user",
-            content: enhancedPrompt
+    // Use Imagen 3 model via Gemini API
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          instances: [{ prompt: enhancedPrompt }],
+          parameters: { 
+            sampleCount: 1,
+            aspectRatio: "1:1"
           }
-        ],
-        modalities: ["image", "text"]
-      }),
-    });
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Lovable AI Gateway error:", response.status, errorText);
+      console.error("Imagen API error:", response.status, errorText);
       
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "تم تجاوز الحد المسموح. يرجى المحاولة لاحقاً." }), {
@@ -84,27 +71,62 @@ serve(async (req) => {
         });
       }
       
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "يرجى إضافة رصيد لحساب Lovable AI." }), {
-          status: 402,
+      // Try fallback to gemini-2.0-flash with image generation
+      console.log("Trying fallback to Gemini Flash image generation...");
+      
+      const fallbackResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: `Generate an image: ${enhancedPrompt}` }] }],
+            generationConfig: {
+              responseModalities: ["TEXT", "IMAGE"]
+            }
+          }),
+        }
+      );
+      
+      if (!fallbackResponse.ok) {
+        const fallbackError = await fallbackResponse.text();
+        console.error("Fallback also failed:", fallbackResponse.status, fallbackError);
+        throw new Error(`Image generation failed: ${response.status}`);
+      }
+      
+      const fallbackData = await fallbackResponse.json();
+      const imagePart = fallbackData.candidates?.[0]?.content?.parts?.find(
+        (p: { inlineData?: { mimeType: string; data: string } }) => p.inlineData
+      );
+      
+      if (imagePart?.inlineData) {
+        const imageUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
+        return new Response(JSON.stringify({ imageUrl, prompt: enhancedPrompt }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       
-      throw new Error(`AI Gateway error: ${response.status}`);
+      throw new Error("No image generated from fallback");
     }
 
     const data = await response.json();
-    console.log("Lovable AI response received");
+    console.log("Imagen response received");
 
-    // Extract image from Lovable AI Gateway response
-    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-
-    if (!imageUrl) {
-      console.error("No image in response:", JSON.stringify(data));
+    // Extract image from Imagen response
+    const predictions = data.predictions;
+    if (!predictions || predictions.length === 0) {
+      console.error("No predictions in response:", JSON.stringify(data));
       throw new Error("No image generated");
     }
 
+    // Imagen returns base64 encoded images
+    const imageData = predictions[0].bytesBase64Encoded;
+    if (!imageData) {
+      console.error("No image data in prediction:", JSON.stringify(predictions[0]));
+      throw new Error("No image data in response");
+    }
+
+    const imageUrl = `data:image/png;base64,${imageData}`;
     console.log("Image generated successfully");
 
     return new Response(JSON.stringify({ 
