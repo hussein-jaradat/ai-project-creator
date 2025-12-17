@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Sparkles, FolderOpen } from "lucide-react";
 import { motion } from "framer-motion";
@@ -8,6 +8,8 @@ import { ChatPanel } from "@/components/studio/ChatPanel";
 import { ActionPanel } from "@/components/studio/ActionPanel";
 import { GenerationResult } from "@/components/studio/GenerationResult";
 import { VideoReveal } from "@/components/studio/VideoReveal";
+import { ChatHistory } from "@/components/studio/ChatHistory";
+import { useChatHistory } from "@/hooks/useChatHistory";
 import { supabase } from "@/integrations/supabase/client";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
@@ -36,6 +38,18 @@ interface GenerationSummary {
 type ActionType = "image" | "video" | null;
 
 export default function Studio() {
+  // Chat History Hook
+  const {
+    conversations,
+    currentConversationId,
+    setCurrentConversationId,
+    isLoadingHistory,
+    loadMessages,
+    createConversation,
+    saveMessage,
+    deleteConversation,
+  } = useChatHistory();
+
   // State
   const [referenceImages, setReferenceImages] = useState<string[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -161,8 +175,27 @@ export default function Studio() {
     setChatError(false);
     setLastUserMessage(message);
 
+    // Create conversation if needed
+    let convId = currentConversationId;
+    if (!convId) {
+      const newConv = await createConversation();
+      if (newConv) {
+        convId = newConv.id;
+      }
+    }
+
+    // Save user message
+    if (convId) {
+      saveMessage(convId, "user", message);
+    }
+
     try {
-      await streamChat(message);
+      const assistantResponse = await streamChat(message);
+      
+      // Save assistant message
+      if (convId && assistantResponse) {
+        saveMessage(convId, "assistant", assistantResponse);
+      }
     } catch (error) {
       console.error("Chat error:", error);
       setChatError(true);
@@ -170,7 +203,7 @@ export default function Studio() {
     } finally {
       setIsLoading(false);
     }
-  }, [streamChat]);
+  }, [streamChat, currentConversationId, createConversation, saveMessage]);
 
   // Retry last message
   const handleRetry = useCallback(() => {
@@ -179,6 +212,30 @@ export default function Studio() {
     setMessages(prev => prev.slice(0, -1));
     handleSendMessage(lastUserMessage);
   }, [lastUserMessage, handleSendMessage]);
+
+  // Handle conversation selection
+  const handleSelectConversation = useCallback(async (conversationId: string) => {
+    setCurrentConversationId(conversationId);
+    const msgs = await loadMessages(conversationId);
+    setMessages(msgs.map(m => ({ role: m.role as "user" | "assistant", content: m.content })));
+    setCanGenerate(false);
+    setGenerationSummary(null);
+    
+    // Re-parse the last assistant message to check for generation readiness
+    const lastAssistantMsg = [...msgs].reverse().find(m => m.role === "assistant");
+    if (lastAssistantMsg) {
+      parseAIResponse(lastAssistantMsg.content);
+    }
+  }, [loadMessages, setCurrentConversationId, parseAIResponse]);
+
+  // Handle new conversation
+  const handleNewConversation = useCallback(() => {
+    setCurrentConversationId(null);
+    setMessages([]);
+    setCanGenerate(false);
+    setGenerationSummary(null);
+    setSelectedAction(null);
+  }, [setCurrentConversationId]);
 
   // Handle action selection
   const handleSelectAction = useCallback((action: ActionType) => {
@@ -505,15 +562,27 @@ export default function Studio() {
         <motion.main
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex-1 border-l border-border"
+          className="flex-1 border-l border-border flex"
         >
-          <ChatPanel
-            messages={messages}
-            onSendMessage={handleSendMessage}
-            isLoading={isLoading}
-            referenceImages={referenceImages}
-            hasError={chatError}
-            onRetry={handleRetry}
+          <div className="flex-1">
+            <ChatPanel
+              messages={messages}
+              onSendMessage={handleSendMessage}
+              isLoading={isLoading}
+              referenceImages={referenceImages}
+              hasError={chatError}
+              onRetry={handleRetry}
+            />
+          </div>
+          
+          {/* Chat History Sidebar */}
+          <ChatHistory
+            conversations={conversations}
+            currentConversationId={currentConversationId}
+            isLoading={isLoadingHistory}
+            onSelectConversation={handleSelectConversation}
+            onNewConversation={handleNewConversation}
+            onDeleteConversation={deleteConversation}
           />
         </motion.main>
 
