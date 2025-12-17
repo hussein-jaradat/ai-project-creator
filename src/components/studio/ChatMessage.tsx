@@ -1,8 +1,8 @@
 import { cn } from "@/lib/utils";
 import { User } from "lucide-react";
-import { OBrainLogo } from "@/components/OBrainLogo";
+import { OBrainIcon } from "@/components/OBrainIcon";
 
-type MessageContent = 
+type MessageContent =
   | string
   | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }>;
 
@@ -49,7 +49,7 @@ export function ChatMessage({ role, content, isStreaming }: ChatMessageProps) {
           isUser ? "bg-primary text-primary-foreground" : ""
         )}
       >
-        {isUser ? <User className="w-4 h-4" /> : <OBrainLogo size="sm" />}
+        {isUser ? <User className="w-4 h-4" /> : <OBrainIcon size="sm" />}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium mb-1 text-muted-foreground">
