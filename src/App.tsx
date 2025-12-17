@@ -13,6 +13,7 @@ import Gallery from "./pages/Gallery";
 import AdminLogin from "./pages/AdminLogin";
 import NotFound from "./pages/NotFound";
 
+// Force reload
 const queryClient = new QueryClient();
 
 const App = () => {
