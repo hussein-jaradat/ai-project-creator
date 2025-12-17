@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Sparkles, FolderOpen } from "lucide-react";
+import { ArrowRight, FolderOpen } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { ReferencePanel } from "@/components/studio/ReferencePanel";
@@ -11,6 +11,7 @@ import { VideoReveal } from "@/components/studio/VideoReveal";
 import { ChatHistory } from "@/components/studio/ChatHistory";
 import { useChatHistory } from "@/hooks/useChatHistory";
 import { supabase } from "@/integrations/supabase/client";
+import { OBrainLogo } from "@/components/OBrainLogo";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 const GENERATE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-image`;
@@ -529,10 +530,8 @@ export default function Studio() {
         </Link>
 
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-gradient-purple-blue flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-primary-foreground" />
-          </div>
-          <h1 className="text-xl font-bold neon-text">استوديو الإبداع</h1>
+          <OBrainLogo size="sm" />
+          <h1 className="text-xl font-bold neon-text">OBrain Studio</h1>
         </div>
 
         <Link to="/gallery" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">

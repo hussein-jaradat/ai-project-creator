@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
-import { Bot, User } from "lucide-react";
+import { User } from "lucide-react";
+import { OBrainLogo } from "@/components/OBrainLogo";
 
 type MessageContent = 
   | string
@@ -44,15 +45,15 @@ export function ChatMessage({ role, content, isStreaming }: ChatMessageProps) {
     >
       <div
         className={cn(
-          "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center",
-          isUser ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground"
+          "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center overflow-hidden",
+          isUser ? "bg-primary text-primary-foreground" : ""
         )}
       >
-        {isUser ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+        {isUser ? <User className="w-4 h-4" /> : <OBrainLogo size="sm" />}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium mb-1 text-muted-foreground">
-          {isUser ? "You" : "ContentAI"}
+          {isUser ? "أنت" : "OBrain"}
         </p>
         {images.length > 0 && (
           <div className="flex gap-2 flex-wrap mb-2">

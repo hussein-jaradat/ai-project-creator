@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
-import { Sparkles, Wand2, Video, Image } from "lucide-react";
+import { Wand2, Video, Image, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
+import { OBrainLogo } from "@/components/OBrainLogo";
 
 export default function Landing() {
   return (
@@ -20,22 +21,36 @@ export default function Landing() {
         transition={{ duration: 0.8 }}
         className="relative z-10 text-center px-6 max-w-4xl"
       >
-        {/* Logo/Badge */}
+        {/* Logo */}
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.2 }}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card mb-8"
+          className="flex flex-col items-center gap-4 mb-8"
         >
-          <Sparkles className="w-4 h-4 text-neon-purple" />
-          <span className="text-sm text-muted-foreground">مدعوم بالذكاء الاصطناعي</span>
+          <OBrainLogo size="xl" className="animate-float" />
+          <div className="flex items-center gap-3">
+            <span className="text-3xl font-bold neon-text">OBrain</span>
+            <span className="text-2xl font-bold text-foreground">أوبراين</span>
+          </div>
+        </motion.div>
+
+        {/* Student Project Badge */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card mb-6"
+        >
+          <Sparkles className="w-4 h-4 text-neon-cyan" />
+          <span className="text-sm text-muted-foreground">مشروع طلابي يهدف للتطوير</span>
         </motion.div>
 
         {/* Main Heading */}
         <motion.h1
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
+          transition={{ delay: 0.4 }}
           className="text-5xl md:text-7xl font-bold mb-6 leading-tight"
         >
           <span className="neon-text">حوّل فكرتك</span>

@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Loader2, Bot, User, Sparkles, RefreshCw } from "lucide-react";
+import { Send, Loader2, User, Sparkles, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { OBrainLogo } from "@/components/OBrainLogo";
 
 interface Message {
   role: "user" | "assistant";
@@ -53,12 +54,10 @@ export function ChatPanel({ messages, onSendMessage, isLoading, referenceImages,
       {/* Chat Header */}
       <div className="flex-shrink-0 p-4 border-b border-border">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-purple-blue flex items-center justify-center">
-            <Bot className="w-5 h-5 text-primary-foreground" />
-          </div>
+          <OBrainLogo size="sm" />
           <div>
-            <h3 className="font-semibold text-foreground">المساعد الإبداعي</h3>
-            <p className="text-xs text-muted-foreground">جاهز لمساعدتك</p>
+            <h3 className="font-semibold text-foreground">OBrain</h3>
+            <p className="text-xs text-muted-foreground">مساعدك الإبداعي</p>
           </div>
           {referenceImages.length > 0 && (
             <div className="mr-auto flex items-center gap-1 px-2 py-1 rounded-full bg-primary/20 text-xs text-primary">
@@ -77,10 +76,10 @@ export function ChatPanel({ messages, onSendMessage, isLoading, referenceImages,
             animate={{ opacity: 1, y: 0 }}
             className="flex flex-col items-center justify-center h-full text-center px-6"
           >
-            <div className="w-20 h-20 rounded-full bg-gradient-purple-blue flex items-center justify-center mb-6 animate-glow">
-              <Sparkles className="w-10 h-10 text-primary-foreground" />
+            <div className="mb-6">
+              <OBrainLogo size="lg" className="animate-glow mx-auto" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">مرحباً! أنا مساعدك الإبداعي</h3>
+            <h3 className="text-xl font-semibold mb-2">مرحباً! أنا OBrain</h3>
             <p className="text-muted-foreground max-w-md">
               ارفع صور منتجك على اليمين، ثم اختر نوع المحتوى على اليسار وسأساعدك في إنشاء محتوى احترافي
             </p>
@@ -97,25 +96,19 @@ export function ChatPanel({ messages, onSendMessage, isLoading, referenceImages,
               >
                 {/* Avatar */}
                 <div className={`
-                  flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center
-                  ${message.role === "user" 
-                    ? "bg-primary/20" 
-                    : "bg-gradient-purple-blue"
-                  }
+                  flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center overflow-hidden
+                  ${message.role === "user" ? "bg-primary/20" : ""}
                 `}>
                   {message.role === "user" 
                     ? <User className="w-4 h-4 text-primary" />
-                    : <Bot className="w-4 h-4 text-primary-foreground" />
+                    : <OBrainLogo size="sm" />
                   }
                 </div>
 
                 {/* Message Bubble */}
                 <div className={`
                   max-w-[80%] px-4 py-3 rounded-2xl
-                  ${message.role === "user" 
-                    ? "chat-bubble-user" 
-                    : "chat-bubble-ai"
-                  }
+                  ${message.role === "user" ? "chat-bubble-user" : "chat-bubble-ai"}
                 `}>
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">
                     {message.content}
@@ -133,8 +126,8 @@ export function ChatPanel({ messages, onSendMessage, isLoading, referenceImages,
             animate={{ opacity: 1 }}
             className="flex gap-3"
           >
-            <div className="w-8 h-8 rounded-full bg-gradient-purple-blue flex items-center justify-center">
-              <Bot className="w-4 h-4 text-primary-foreground" />
+            <div className="w-8 h-8 overflow-hidden">
+              <OBrainLogo size="sm" />
             </div>
             <div className="chat-bubble-ai px-4 py-3">
               <div className="flex items-center gap-2">
