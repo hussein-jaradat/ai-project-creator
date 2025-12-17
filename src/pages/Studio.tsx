@@ -38,6 +38,9 @@ interface GenerationSummary {
 
 type ActionType = "image" | "video" | null;
 
+// VIEWING MODE: Set to true to disable all interactions for public visitors
+const VIEWING_MODE = true;
+
 export default function Studio() {
   // Chat History Hook
   const {
@@ -554,6 +557,7 @@ export default function Studio() {
             isGenerating={isGenerating}
             onGenerate={handleGenerate}
             canGenerate={canGenerate}
+            viewingMode={VIEWING_MODE}
           />
         </motion.aside>
 
@@ -571,6 +575,7 @@ export default function Studio() {
               referenceImages={referenceImages}
               hasError={chatError}
               onRetry={handleRetry}
+              viewingMode={VIEWING_MODE}
             />
           </div>
           
@@ -594,6 +599,7 @@ export default function Studio() {
           <ReferencePanel
             images={referenceImages}
             onImagesChange={setReferenceImages}
+            viewingMode={VIEWING_MODE}
           />
         </motion.aside>
       </div>
