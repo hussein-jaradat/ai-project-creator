@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LanguageToggle } from '@/components/LanguageToggle';
-import { Sparkles, ArrowLeft, Mail, Lock, User } from 'lucide-react';
+import { ArrowLeft, Mail, Lock, User, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { OBrainLogo } from '@/components/OBrainLogo';
 
 export default function Auth() {
   const [searchParams] = useSearchParams();
@@ -75,11 +76,10 @@ export default function Auth() {
           </div>
 
           {/* Logo */}
-          <div className="flex items-center gap-2 font-heading font-bold text-2xl mb-8">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-[hsl(262_83%_58%)] flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <span className="gradient-text">ContentAI</span>
+          <div className="flex items-center gap-3 font-heading font-bold text-2xl mb-8">
+            <OBrainLogo size="md" />
+            <span className="neon-text">OBrain</span>
+            <span className="text-foreground text-lg">أوبراين</span>
           </div>
 
           {/* Title */}
@@ -187,8 +187,8 @@ export default function Auth() {
       {/* Right Side - Visual */}
       <div className="hidden lg:flex flex-1 bg-gradient-to-br from-primary/10 via-background to-accent/10 items-center justify-center p-12">
         <div className="max-w-md text-center">
-          <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-primary to-[hsl(262_83%_58%)] flex items-center justify-center mx-auto mb-8 shadow-glow animate-float">
-            <Sparkles className="w-12 h-12 text-primary-foreground" />
+          <div className="mb-8">
+            <OBrainLogo size="xl" className="mx-auto animate-float" />
           </div>
           <h2 className="text-2xl font-heading font-bold mb-4">
             {language === 'ar' ? 'اصنع إعلانك خلال دقائق' : 'Create Your Ad in Minutes'}

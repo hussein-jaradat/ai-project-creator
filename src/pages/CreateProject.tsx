@@ -8,8 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { useToast } from '@/hooks/use-toast';
+import { OBrainLogo } from '@/components/OBrainLogo';
 import {
-  Sparkles,
   ArrowLeft,
   ArrowRight,
   Upload,
@@ -26,6 +26,7 @@ import {
   Heart,
   Star,
   Layers,
+  Sparkles,
 } from 'lucide-react';
 
 type Step = 1 | 2 | 3 | 4;
@@ -175,11 +176,10 @@ export default function CreateProject() {
       {/* Header */}
       <header className="border-b border-border/50 bg-background/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 font-heading font-bold text-xl">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-[hsl(262_83%_58%)] flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <span className="gradient-text">ContentAI</span>
+          <Link to="/" className="flex items-center gap-3 font-heading font-bold text-xl">
+            <OBrainLogo size="sm" />
+            <span className="neon-text">OBrain</span>
+            <span className="text-foreground text-sm">أوبراين</span>
           </Link>
           <LanguageToggle />
         </div>
