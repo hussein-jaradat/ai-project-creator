@@ -121,12 +121,12 @@ serve(async (req) => {
     const accessToken = await getAccessToken(serviceAccountJson);
     console.log("Access token obtained successfully");
 
-    // Vertex AI Veo endpoint - using correct model and action
+    // Vertex AI Veo endpoint - using Veo 3 Fast model
     const location = "us-central1";
-    const model = "veo-2.0-generate-001"; // Correct Veo model name
+    const model = "veo-3.0-fast-generate-001"; // Veo 3 Fast - available in user's project
     const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${model}:predictLongRunning`;
 
-    // Build the request payload
+    // Build the request payload with Veo 3 parameters
     const requestPayload: any = {
       instances: [
         {
@@ -137,6 +137,8 @@ serve(async (req) => {
         sampleCount: 1,
         durationSeconds: duration,
         aspectRatio: "16:9",
+        generateAudio: true,  // Veo 3 supports audio generation
+        resolution: "720p"    // 720p resolution
       }
     };
 
