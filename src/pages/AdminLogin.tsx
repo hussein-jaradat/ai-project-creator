@@ -14,8 +14,9 @@ export default function AdminLogin() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
   const navigate = useNavigate();
-  const { signIn, isAdmin } = useAuth();
+  const { signIn, signUp, isAdmin } = useAuth();
 
   // Redirect if already admin
   if (isAdmin) {
@@ -31,21 +32,33 @@ export default function AdminLogin() {
       return;
     }
 
+    if (password.length < 6) {
+      toast.error("كلمة المرور يجب أن تكون 6 أحرف على الأقل");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      const { error } = await signIn(email, password);
-      
-      if (error) {
-        toast.error("فشل تسجيل الدخول: " + error.message);
-        return;
+      if (isSignUp) {
+        const { error } = await signUp(email, password);
+        if (error) {
+          toast.error("فشل إنشاء الحساب: " + error.message);
+          return;
+        }
+        toast.success("تم إنشاء الحساب بنجاح! يمكنك الآن تسجيل الدخول");
+        setIsSignUp(false);
+      } else {
+        const { error } = await signIn(email, password);
+        if (error) {
+          toast.error("فشل تسجيل الدخول: " + error.message);
+          return;
+        }
+        setTimeout(() => {
+          toast.success("تم تسجيل الدخول بنجاح!");
+          navigate("/studio");
+        }, 500);
       }
-
-      // Wait a bit for auth state to update
-      setTimeout(() => {
-        toast.success("تم تسجيل الدخول بنجاح!");
-        navigate("/studio");
-      }, 500);
     } catch (error) {
       toast.error("حدث خطأ غير متوقع");
     } finally {
@@ -77,7 +90,9 @@ export default function AdminLogin() {
             <div className="flex justify-center mb-4">
               <OBrainLogo size="lg" />
             </div>
-            <h1 className="text-2xl font-bold mb-2">تسجيل دخول الأدمن</h1>
+            <h1 className="text-2xl font-bold mb-2">
+              {isSignUp ? "إنشاء حساب أدمن" : "تسجيل دخول الأدمن"}
+            </h1>
             <p className="text-muted-foreground text-sm">
               الوصول مخصص للمسؤول فقط
             </p>
@@ -132,13 +147,24 @@ export default function AdminLogin() {
               {isLoading ? (
                 <span className="flex items-center gap-2">
                   <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                  جارٍ تسجيل الدخول...
+                  {isSignUp ? "جارٍ إنشاء الحساب..." : "جارٍ تسجيل الدخول..."}
                 </span>
               ) : (
-                "تسجيل الدخول"
+                isSignUp ? "إنشاء الحساب" : "تسجيل الدخول"
               )}
             </Button>
           </form>
+
+          {/* Toggle Sign Up / Sign In */}
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={() => setIsSignUp(!isSignUp)}
+              className="text-sm text-primary hover:underline"
+            >
+              {isSignUp ? "لديك حساب؟ تسجيل الدخول" : "ليس لديك حساب؟ إنشاء حساب جديد"}
+            </button>
+          </div>
         </div>
 
         {/* Footer Note */}
