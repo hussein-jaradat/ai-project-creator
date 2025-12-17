@@ -23,6 +23,7 @@ export type Database = {
           image_url: string
           mood: string | null
           platform: string | null
+          video_url: string | null
         }
         Insert: {
           business_description?: string | null
@@ -32,6 +33,7 @@ export type Database = {
           image_url: string
           mood?: string | null
           platform?: string | null
+          video_url?: string | null
         }
         Update: {
           business_description?: string | null
@@ -41,6 +43,7 @@ export type Database = {
           image_url?: string
           mood?: string | null
           platform?: string | null
+          video_url?: string | null
         }
         Relationships: []
       }
