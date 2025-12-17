@@ -270,6 +270,52 @@ export default function Studio() {
     }
   }, [generationSummary]);
 
+  // Save video to database
+  const saveVideo = useCallback(async (videoUrl: string) => {
+    try {
+      // Download video
+      const response = await fetch(videoUrl);
+      const blob = await response.blob();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.mp4`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from("generated-videos")
+        .upload(fileName, blob, { contentType: "video/mp4" });
+
+      if (uploadError) {
+        console.error("Video upload error:", uploadError);
+        return;
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from("generated-videos")
+        .getPublicUrl(fileName);
+
+      // Save to database
+      const { error: dbError } = await supabase
+        .from("generated_content")
+        .insert({
+          image_url: publicUrl, // Keep for backwards compatibility
+          video_url: publicUrl,
+          mood: generationSummary?.mood,
+          platform: generationSummary?.platform,
+          business_description: generationSummary?.business,
+        });
+
+      if (dbError) {
+        console.error("Video database error:", dbError);
+        return;
+      }
+
+      toast.success("تم حفظ الفيديو في المعرض");
+    } catch (error) {
+      console.error("Save video error:", error);
+      toast.error("فشل في حفظ بعض المحتوى");
+    }
+  }, [generationSummary]);
+
   // Handle image generation
   const handleGenerateImages = useCallback(async () => {
     if (!canGenerate || !generationSummary) {
@@ -374,6 +420,9 @@ export default function Studio() {
         setGeneratedVideo(data.videoUrl);
         setShowVideoResults(true);
         toast.success("تم إنشاء الفيديو بنجاح!");
+        
+        // Save video to gallery in background
+        saveVideo(data.videoUrl);
       } else {
         throw new Error("لم يتم إرجاع رابط الفيديو");
       }

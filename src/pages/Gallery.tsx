@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Trash2, Download, Search, Calendar, Loader2, ImageOff } from "lucide-react";
+import { ArrowRight, Trash2, Download, Search, Calendar, Loader2, ImageOff, Video } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { ShareButtons } from "@/components/studio/ShareButtons";
 interface GeneratedContent {
   id: string;
   image_url: string;
+  video_url: string | null;
   caption: string | null;
   mood: string | null;
   platform: string | null;
@@ -45,7 +46,7 @@ export default function Gallery() {
     }
   };
 
-  const handleDelete = async (id: string, imageUrl: string) => {
+  const handleDelete = async (id: string, imageUrl: string, videoUrl: string | null) => {
     try {
       // Delete from database
       const { error: dbError } = await supabase
@@ -56,7 +57,12 @@ export default function Gallery() {
       if (dbError) throw dbError;
 
       // Try to delete from storage if it's a storage URL
-      if (imageUrl.includes("generated-images")) {
+      if (videoUrl && videoUrl.includes("generated-videos")) {
+        const path = videoUrl.split("generated-videos/")[1];
+        if (path) {
+          await supabase.storage.from("generated-videos").remove([path]);
+        }
+      } else if (imageUrl.includes("generated-images")) {
         const path = imageUrl.split("generated-images/")[1];
         if (path) {
           await supabase.storage.from("generated-images").remove([path]);
@@ -72,23 +78,25 @@ export default function Gallery() {
     }
   };
 
-  const handleDownload = async (imageUrl: string, index: number) => {
+  const handleDownload = async (url: string, isVideo: boolean, index: number) => {
     try {
-      const response = await fetch(imageUrl);
+      const response = await fetch(url);
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const blobUrl = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url;
-      a.download = `content-${index + 1}.png`;
+      a.href = blobUrl;
+      a.download = `content-${index + 1}.${isVideo ? "mp4" : "png"}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      toast.success("تم تحميل الصورة");
+      window.URL.revokeObjectURL(blobUrl);
+      toast.success(isVideo ? "تم تحميل الفيديو" : "تم تحميل الصورة");
     } catch (error) {
-      toast.error("فشل في تحميل الصورة");
+      toast.error(isVideo ? "فشل في تحميل الفيديو" : "فشل في تحميل الصورة");
     }
   };
+
+  const isVideo = (item: GeneratedContent) => !!item.video_url;
 
   const filteredContent = content.filter(item =>
     item.caption?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -171,14 +179,33 @@ export default function Gallery() {
                   className="group relative aspect-square rounded-xl overflow-hidden bg-secondary cursor-pointer"
                   onClick={() => setSelectedImage(item)}
                 >
-                  <img
-                    src={item.image_url}
-                    alt="Generated content"
-                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                  />
+                  {isVideo(item) ? (
+                    <video
+                      src={item.video_url!}
+                      className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                      muted
+                      loop
+                      onMouseEnter={(e) => e.currentTarget.play()}
+                      onMouseLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
+                    />
+                  ) : (
+                    <img
+                      src={item.image_url}
+                      alt="Generated content"
+                      className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                    />
+                  )}
+                  
+                  {/* Video indicator */}
+                  {isVideo(item) && (
+                    <div className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white">
+                      <Video className="w-4 h-4" />
+                    </div>
+                  )}
+                  
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
                     <div className="absolute bottom-0 left-0 right-0 p-3">
-                      <p className="text-white text-sm line-clamp-2">{item.caption}</p>
+                      <p className="text-white text-sm line-clamp-2">{item.caption || (isVideo(item) ? "فيديو" : "صورة")}</p>
                       <p className="text-white/60 text-xs mt-1">{formatDate(item.created_at)}</p>
                     </div>
                   </div>
@@ -206,13 +233,22 @@ export default function Gallery() {
               onClick={(e) => e.stopPropagation()}
               className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-6"
             >
-              {/* Image */}
+              {/* Image or Video */}
               <div className="aspect-square rounded-2xl overflow-hidden bg-secondary neon-glow-purple">
-                <img
-                  src={selectedImage.image_url}
-                  alt="Generated content"
-                  className="w-full h-full object-cover"
-                />
+                {isVideo(selectedImage) ? (
+                  <video
+                    src={selectedImage.video_url!}
+                    controls
+                    autoPlay
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <img
+                    src={selectedImage.image_url}
+                    alt="Generated content"
+                    className="w-full h-full object-cover"
+                  />
+                )}
               </div>
 
               {/* Details */}
@@ -266,15 +302,19 @@ export default function Gallery() {
                 {/* Actions */}
                 <div className="flex gap-3 mt-4">
                   <Button
-                    onClick={() => handleDownload(selectedImage.image_url, 0)}
+                    onClick={() => handleDownload(
+                      isVideo(selectedImage) ? selectedImage.video_url! : selectedImage.image_url,
+                      isVideo(selectedImage),
+                      0
+                    )}
                     className="flex-1 h-11 bg-gradient-purple-blue hover:opacity-90"
                   >
                     <Download className="w-4 h-4 ml-2" />
-                    تحميل
+                    تحميل {isVideo(selectedImage) ? "الفيديو" : "الصورة"}
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => handleDelete(selectedImage.id, selectedImage.image_url)}
+                    onClick={() => handleDelete(selectedImage.id, selectedImage.image_url, selectedImage.video_url)}
                     className="h-11 px-4 border-destructive text-destructive hover:bg-destructive/10"
                   >
                     <Trash2 className="w-4 h-4" />
