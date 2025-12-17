@@ -8,7 +8,7 @@ const corsHeaders = {
 interface VideoGenerationRequest {
   prompt: string;
   referenceImages?: string[];
-  duration?: number; // 5-8 seconds for Veo
+  duration?: number; // Veo 3 supports: 4, 6, or 8 seconds
 }
 
 async function getAccessToken(serviceAccountJson: string): Promise<string> {
@@ -106,7 +106,7 @@ serve(async (req) => {
       );
     }
 
-    const { prompt, referenceImages, duration = 5 }: VideoGenerationRequest = await req.json();
+    const { prompt, referenceImages, duration = 6 }: VideoGenerationRequest = await req.json();
 
     if (!prompt) {
       return new Response(
