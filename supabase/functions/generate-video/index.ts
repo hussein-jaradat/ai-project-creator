@@ -202,46 +202,35 @@ serve(async (req) => {
       const operationName = result.name;
       console.log("Video generation started, operation:", operationName);
 
+      // Extract model from operation name for polling endpoint
+      const modelMatch = operationName.match(/models\/([^\/]+)/);
+      const modelFromOp = modelMatch ? modelMatch[1] : model;
+
+      // Use fetchPredictOperation endpoint for polling (correct method for Veo)
+      const pollEndpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${modelFromOp}:fetchPredictOperation`;
+      console.log("Polling endpoint:", pollEndpoint);
+
       // Poll for completion (max 3 minutes)
       const maxAttempts = 36; // 36 * 5 seconds = 3 minutes
       let attempt = 0;
       
-      // Build the correct polling URL - extract operation ID if full path
-      let pollUrl: string;
-      if (operationName.startsWith('projects/')) {
-        // Full path returned, use it directly
-        pollUrl = `https://${location}-aiplatform.googleapis.com/v1/${operationName}`;
-      } else if (operationName.includes('/operations/')) {
-        // Partial path, construct full URL
-        pollUrl = `https://${location}-aiplatform.googleapis.com/v1/${operationName}`;
-      } else {
-        // Just operation ID, construct the full operations path
-        pollUrl = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/operations/${operationName}`;
-      }
-      
-      console.log("Polling URL:", pollUrl);
-      
       while (attempt < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
         
-        const statusResponse = await fetch(pollUrl, {
+        const statusResponse = await fetch(pollEndpoint, {
+          method: "POST",
           headers: {
             "Authorization": `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
           },
+          body: JSON.stringify({
+            operationName: operationName
+          }),
         });
 
         if (!statusResponse.ok) {
           const errorText = await statusResponse.text();
           console.error(`Status check failed (attempt ${attempt + 1}):`, statusResponse.status, errorText);
-          
-          // If 404, the operation might be using a different endpoint format
-          if (statusResponse.status === 404 && attempt === 0) {
-            // Try alternative endpoint format
-            const altPollUrl = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/operations/${operationName.split('/').pop()}`;
-            console.log("Trying alternative polling URL:", altPollUrl);
-            pollUrl = altPollUrl;
-          }
-          
           attempt++;
           continue;
         }
@@ -258,11 +247,13 @@ serve(async (req) => {
             );
           }
 
-          // Extract video URL from response
+          // Extract video URL from response - check for gcsUri first (GCS storage)
           const videoData = statusResult.response;
-          if (videoData?.generatedSamples?.[0]?.video?.uri) {
-            const videoUri = videoData.generatedSamples[0].video.uri;
-            console.log("Video generated successfully:", videoUri);
+          console.log("Video response data:", JSON.stringify(videoData).substring(0, 500));
+          
+          if (videoData?.videos?.[0]?.gcsUri) {
+            const videoUri = videoData.videos[0].gcsUri;
+            console.log("Video generated successfully (GCS):", videoUri);
             
             return new Response(
               JSON.stringify({ 
@@ -274,22 +265,35 @@ serve(async (req) => {
             );
           }
 
-          // Check alternative response structure
-          if (videoData?.videos?.[0]) {
+          // Check for base64 encoded video
+          if (videoData?.videos?.[0]?.bytesBase64Encoded) {
             const videoBase64 = videoData.videos[0].bytesBase64Encoded;
-            if (videoBase64) {
-              const videoDataUrl = `data:video/mp4;base64,${videoBase64}`;
-              console.log("Video generated as base64");
-              
-              return new Response(
-                JSON.stringify({ 
-                  success: true,
-                  videoUrl: videoDataUrl,
-                  message: "تم إنشاء الفيديو بنجاح"
-                }),
-                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-              );
-            }
+            const videoDataUrl = `data:video/mp4;base64,${videoBase64}`;
+            console.log("Video generated as base64");
+            
+            return new Response(
+              JSON.stringify({ 
+                success: true,
+                videoUrl: videoDataUrl,
+                message: "تم إنشاء الفيديو بنجاح"
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+
+          // Alternative response structure
+          if (videoData?.generatedSamples?.[0]?.video?.uri) {
+            const videoUri = videoData.generatedSamples[0].video.uri;
+            console.log("Video generated successfully (samples):", videoUri);
+            
+            return new Response(
+              JSON.stringify({ 
+                success: true,
+                videoUrl: videoUri,
+                message: "تم إنشاء الفيديو بنجاح"
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
           }
 
           console.error("Unexpected response structure:", JSON.stringify(videoData));
