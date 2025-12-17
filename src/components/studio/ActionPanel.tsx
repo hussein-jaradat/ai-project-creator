@@ -9,6 +9,7 @@ interface ActionPanelProps {
   isGenerating: boolean;
   onGenerate: () => void;
   canGenerate: boolean;
+  viewingMode?: boolean;
 }
 
 export function ActionPanel({ 
@@ -16,8 +17,10 @@ export function ActionPanel({
   onSelectAction, 
   isGenerating, 
   onGenerate,
-  canGenerate 
+  canGenerate,
+  viewingMode = false
 }: ActionPanelProps) {
+  const isDisabled = viewingMode || isGenerating;
   return (
     <div className="h-full flex flex-col p-4">
       {/* Header */}
@@ -30,17 +33,17 @@ export function ActionPanel({
       <div className="space-y-3">
         {/* Create Image */}
         <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => onSelectAction("image")}
-          disabled={isGenerating}
+          whileHover={{ scale: isDisabled ? 1 : 1.02 }}
+          whileTap={{ scale: isDisabled ? 1 : 0.98 }}
+          onClick={() => !viewingMode && onSelectAction("image")}
+          disabled={isDisabled}
           className={`
             w-full p-4 rounded-xl border-2 transition-all text-right
             ${selectedAction === "image"
               ? "border-primary bg-primary/10 neon-glow-purple"
               : "border-border bg-secondary/30 hover:border-primary/50"
             }
-            ${isGenerating ? "opacity-50 cursor-not-allowed" : ""}
+            ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}
           `}
         >
           <div className="flex items-center gap-3">
@@ -62,17 +65,17 @@ export function ActionPanel({
 
         {/* Create Video */}
         <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => onSelectAction("video")}
-          disabled={isGenerating}
+          whileHover={{ scale: isDisabled ? 1 : 1.02 }}
+          whileTap={{ scale: isDisabled ? 1 : 0.98 }}
+          onClick={() => !viewingMode && onSelectAction("video")}
+          disabled={isDisabled}
           className={`
             w-full p-4 rounded-xl border-2 transition-all text-right
             ${selectedAction === "video"
               ? "border-accent bg-accent/10 neon-glow-cyan"
               : "border-border bg-secondary/30 hover:border-accent/50"
             }
-            ${isGenerating ? "opacity-50 cursor-not-allowed" : ""}
+            ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}
           `}
         >
           <div className="flex items-center gap-3">
