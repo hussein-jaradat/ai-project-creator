@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { OBrainLogo } from "@/components/OBrainLogo";
+import { OBrainIcon } from "@/components/OBrainIcon";
 
 interface Message {
   role: "user" | "assistant";
@@ -101,7 +102,7 @@ export function ChatPanel({ messages, onSendMessage, isLoading, referenceImages,
                 `}>
                   {message.role === "user" 
                     ? <User className="w-4 h-4 text-primary" />
-                    : <OBrainLogo size="sm" />
+                    : <OBrainIcon size="sm" />
                   }
                 </div>
 
@@ -126,9 +127,7 @@ export function ChatPanel({ messages, onSendMessage, isLoading, referenceImages,
             animate={{ opacity: 1 }}
             className="flex gap-3"
           >
-            <div className="w-8 h-8 overflow-hidden">
-              <OBrainLogo size="sm" />
-            </div>
+            <OBrainIcon size="sm" />
             <div className="chat-bubble-ai px-4 py-3">
               <div className="flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin text-primary" />
