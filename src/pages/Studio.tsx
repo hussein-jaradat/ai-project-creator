@@ -12,6 +12,7 @@ import { ChatHistory } from "@/components/studio/ChatHistory";
 import { useChatHistory } from "@/hooks/useChatHistory";
 import { supabase } from "@/integrations/supabase/client";
 import { OBrainLogo } from "@/components/OBrainLogo";
+import { ReferenceImage } from "@/types/reference";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 const GENERATE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-image`;
@@ -53,7 +54,7 @@ export default function Studio() {
   } = useChatHistory();
 
   // State
-  const [referenceImages, setReferenceImages] = useState<string[]>([]);
+  const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedAction, setSelectedAction] = useState<ActionType>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -91,8 +92,10 @@ export default function Studio() {
     
     // Include reference images info in the message if available
     let messageWithContext = userMessage;
-    if (referenceImages.length > 0 && messages.length === 0) {
-      messageWithContext = `[لدي ${referenceImages.length} صور مرفوعة كمراجع]\n\n${userMessage}`;
+    const enabledImages = referenceImages.filter(img => img.enabled);
+    if (enabledImages.length > 0 && messages.length === 0) {
+      const categorySummary = enabledImages.map(img => img.category).join(', ');
+      messageWithContext = `[لدي ${enabledImages.length} صور مرفوعة كمراجع: ${categorySummary}]\n\n${userMessage}`;
     }
 
     const messagesForAPI = allMessages.map(m => ({
@@ -397,6 +400,11 @@ export default function Studio() {
       for (let i = 0; i < 4; i++) {
         toast.info(`جارٍ إنشاء الصورة ${i + 1} من 4...`);
 
+        // Get enabled reference images sorted by priority
+        const enabledRefs = referenceImages
+          .filter(img => img.enabled && img.url.startsWith('data:'))
+          .sort((a, b) => a.priority - b.priority);
+
         const response = await fetch(GENERATE_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -405,7 +413,11 @@ export default function Studio() {
             mood: generationSummary.mood,
             platform: generationSummary.platform,
             business: generationSummary.business,
-            referenceImages: referenceImages.filter(img => img.startsWith('data:')),
+            referenceImages: enabledRefs.map(img => ({
+              url: img.url,
+              category: img.category,
+              priority: img.priority,
+            })),
           }),
         });
 
@@ -459,12 +471,21 @@ export default function Studio() {
         For ${generationSummary.platform}. 
         Cinematic quality with smooth transitions.`;
 
+      // Get enabled reference images sorted by priority
+      const enabledRefs = referenceImages
+        .filter(img => img.enabled && img.url.startsWith('data:'))
+        .sort((a, b) => a.priority - b.priority);
+
       const response = await fetch(VIDEO_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt,
-          referenceImages: referenceImages.filter(img => img.startsWith('data:')),
+          referenceImages: enabledRefs.map(img => ({
+            url: img.url,
+            category: img.category,
+            priority: img.priority,
+          })),
           duration: 6,
         }),
       });
