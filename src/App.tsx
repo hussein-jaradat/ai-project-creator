@@ -6,9 +6,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Studio from "./pages/Studio";
 import Gallery from "./pages/Gallery";
+import Profile from "./pages/Profile";
 import AdminLogin from "./pages/AdminLogin";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -30,10 +32,26 @@ const App = () => {
             <Sonner />
             <BrowserRouter>
               <Routes>
+                {/* Public Routes */}
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
-                <Route path="/studio" element={<Studio />} />
-                <Route path="/gallery" element={<Gallery />} />
+                
+                {/* Protected Routes - Require Authentication */}
+                <Route path="/studio" element={
+                  <ProtectedRoute>
+                    <Studio />
+                  </ProtectedRoute>
+                } />
+                <Route path="/gallery" element={
+                  <ProtectedRoute>
+                    <Gallery />
+                  </ProtectedRoute>
+                } />
+                <Route path="/profile" element={
+                  <ProtectedRoute>
+                    <Profile />
+                  </ProtectedRoute>
+                } />
                 <Route path="/admin-login" element={<AdminLogin />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
