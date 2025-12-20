@@ -2,10 +2,13 @@ import { Link } from "react-router-dom";
 import { Wand2, Video, Image, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { OBrainLogo } from "@/components/OBrainLogo";
+import { Navbar } from "@/components/landing/Navbar";
 
 export default function Landing() {
   return (
     <div className="min-h-screen animated-bg flex flex-col items-center justify-center relative overflow-hidden">
+      {/* Navbar */}
+      <Navbar />
       {/* Background Grid */}
       <div className="absolute inset-0 bg-[linear-gradient(rgba(139,92,246,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(139,92,246,0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
       
