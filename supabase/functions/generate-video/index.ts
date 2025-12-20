@@ -8,13 +8,85 @@ const corsHeaders = {
 interface VideoGenerationRequest {
   prompt: string;
   referenceImages?: string[];
-  duration?: number; // Veo 3 supports: 4, 6, or 8 seconds
+  duration?: number;
+  platform?: string;
+  mood?: string;
+  business?: string;
+  brandKit?: any;
+}
+
+// استدعاء محرك هندسة البرومبت
+async function getEnhancedPrompt(
+  userPrompt: string,
+  platform?: string,
+  mood?: string,
+  business?: string,
+  brandKit?: any
+): Promise<string> {
+  try {
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/prompt-engineer`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+      },
+      body: JSON.stringify({
+        userPrompt,
+        contentType: "video",
+        platform,
+        mood,
+        business,
+        brandKit,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("Prompt Engineer failed, using fallback");
+      return buildBasicVideoPrompt(userPrompt, mood, business);
+    }
+
+    const data = await response.json();
+    console.log("Prompt Engineer response:", { source: data.source, length: data.enhancedPrompt?.length });
+    
+    return data.enhancedPrompt || buildBasicVideoPrompt(userPrompt, mood, business);
+  } catch (error) {
+    console.error("Error calling Prompt Engineer:", error);
+    return buildBasicVideoPrompt(userPrompt, mood, business);
+  }
+}
+
+// برومبت فيديو أساسي احتياطي
+function buildBasicVideoPrompt(
+  userPrompt: string,
+  mood?: string,
+  business?: string
+): string {
+  const moodStyles: Record<string, string> = {
+    luxury: "luxurious, premium, high-end cinematography",
+    minimal: "clean, simple, minimalist motion",
+    energetic: "vibrant, dynamic, fast-paced",
+    warm: "cozy, inviting, warm color grading",
+    elegant: "refined, graceful, smooth transitions",
+    professional: "corporate, polished, steady shots",
+    cinematic: "cinematic lighting, dramatic, film-like"
+  };
+
+  let prompt = `Professional marketing video for ${business || "brand"}. ${userPrompt}`;
+  
+  if (mood && moodStyles[mood.toLowerCase()]) {
+    prompt += `. Style: ${moodStyles[mood.toLowerCase()]}`;
+  }
+  
+  prompt += ". Smooth camera movement, professional color grading, high production value.";
+  
+  return prompt;
 }
 
 async function getAccessToken(serviceAccountJson: string): Promise<string> {
   const serviceAccount = JSON.parse(serviceAccountJson);
   
-  // Create JWT header and payload
   const header = {
     alg: "RS256",
     typ: "JWT",
@@ -29,7 +101,6 @@ async function getAccessToken(serviceAccountJson: string): Promise<string> {
     exp: now + 3600,
   };
 
-  // Base64URL encode
   const encoder = new TextEncoder();
   const base64UrlEncode = (data: Uint8Array) => {
     return btoa(String.fromCharCode(...data))
@@ -42,7 +113,6 @@ async function getAccessToken(serviceAccountJson: string): Promise<string> {
   const payloadB64 = base64UrlEncode(encoder.encode(JSON.stringify(payload)));
   const signatureInput = `${headerB64}.${payloadB64}`;
 
-  // Import the private key and sign
   const privateKeyPem = serviceAccount.private_key;
   const pemContents = privateKeyPem
     .replace(/-----BEGIN PRIVATE KEY-----/g, '')
@@ -68,7 +138,6 @@ async function getAccessToken(serviceAccountJson: string): Promise<string> {
   const signatureB64 = base64UrlEncode(new Uint8Array(signature));
   const jwt = `${signatureInput}.${signatureB64}`;
 
-  // Exchange JWT for access token
   const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -89,7 +158,6 @@ async function getAccessToken(serviceAccountJson: string): Promise<string> {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -106,7 +174,15 @@ serve(async (req) => {
       );
     }
 
-    const { prompt, referenceImages, duration = 6 }: VideoGenerationRequest = await req.json();
+    const { 
+      prompt, 
+      referenceImages, 
+      duration = 6,
+      platform,
+      mood,
+      business,
+      brandKit
+    }: VideoGenerationRequest = await req.json();
 
     if (!prompt) {
       return new Response(
@@ -115,37 +191,46 @@ serve(async (req) => {
       );
     }
 
-    console.log("Starting video generation with prompt:", prompt);
+    console.log("Video generation request:", { 
+      prompt, 
+      duration, 
+      platform, 
+      mood, 
+      business,
+      hasReferenceImages: (referenceImages?.length ?? 0) > 0 
+    });
+
+    // استخدام محرك هندسة البرومبت للحصول على برومبت احترافي
+    const enhancedPrompt = await getEnhancedPrompt(prompt, platform, mood, business, brandKit);
+    console.log("Enhanced video prompt length:", enhancedPrompt.length);
 
     // Get access token
     const accessToken = await getAccessToken(serviceAccountJson);
     console.log("Access token obtained successfully");
 
-    // Vertex AI Veo endpoint - using Veo 3 Fast model
+    // Vertex AI Veo endpoint
     const location = "us-central1";
-    const model = "veo-3.0-fast-generate-001"; // Veo 3 Fast - available in user's project
+    const model = "veo-3.0-fast-generate-001";
     const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${model}:predictLongRunning`;
 
-    // Build the request payload with Veo 3 parameters
     const requestPayload: any = {
       instances: [
         {
-          prompt: prompt,
+          prompt: enhancedPrompt,
         }
       ],
       parameters: {
         sampleCount: 1,
         durationSeconds: duration,
         aspectRatio: "16:9",
-        generateAudio: true,  // Veo 3 supports audio generation
-        resolution: "720p"    // 720p resolution
+        generateAudio: true,
+        resolution: "720p"
       }
     };
 
-    // Add reference image if provided (image-to-video)
+    // Add reference image if provided
     if (referenceImages && referenceImages.length > 0) {
       const firstImage = referenceImages[0];
-      // Extract base64 data if it's a data URL
       const base64Data = firstImage.includes('base64,') 
         ? firstImage.split('base64,')[1] 
         : firstImage;
@@ -158,7 +243,6 @@ serve(async (req) => {
 
     console.log("Calling Vertex AI Veo API...");
 
-    // Call Vertex AI Veo
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
@@ -172,7 +256,6 @@ serve(async (req) => {
       const errorText = await response.text();
       console.error("Veo API error:", response.status, errorText);
       
-      // Handle specific errors
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: "تم تجاوز حد الطلبات، يرجى المحاولة لاحقاً" }),
@@ -196,26 +279,21 @@ serve(async (req) => {
     const result = await response.json();
     console.log("Veo API response received:", JSON.stringify(result).substring(0, 500));
 
-    // Check if this is a long-running operation (LRO)
+    // Handle long-running operation
     if (result.name && result.name.includes('operations')) {
-      // This is an async operation, we need to poll for the result
       const operationName = result.name;
       console.log("Video generation started, operation:", operationName);
 
-      // Extract model from operation name for polling endpoint
       const modelMatch = operationName.match(/models\/([^\/]+)/);
       const modelFromOp = modelMatch ? modelMatch[1] : model;
 
-      // Use fetchPredictOperation endpoint for polling (correct method for Veo)
       const pollEndpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${modelFromOp}:fetchPredictOperation`;
-      console.log("Polling endpoint:", pollEndpoint);
-
-      // Poll for completion (max 3 minutes)
-      const maxAttempts = 36; // 36 * 5 seconds = 3 minutes
+      
+      const maxAttempts = 36;
       let attempt = 0;
       
       while (attempt < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+        await new Promise(resolve => setTimeout(resolve, 5000));
         
         const statusResponse = await fetch(pollEndpoint, {
           method: "POST",
@@ -247,7 +325,6 @@ serve(async (req) => {
             );
           }
 
-          // Extract video URL from response - check for gcsUri first (GCS storage)
           const videoData = statusResult.response;
           console.log("Video response data:", JSON.stringify(videoData).substring(0, 500));
           
@@ -265,7 +342,6 @@ serve(async (req) => {
             );
           }
 
-          // Check for base64 encoded video
           if (videoData?.videos?.[0]?.bytesBase64Encoded) {
             const videoBase64 = videoData.videos[0].bytesBase64Encoded;
             const videoDataUrl = `data:video/mp4;base64,${videoBase64}`;
@@ -281,7 +357,6 @@ serve(async (req) => {
             );
           }
 
-          // Alternative response structure
           if (videoData?.generatedSamples?.[0]?.video?.uri) {
             const videoUri = videoData.generatedSamples[0].video.uri;
             console.log("Video generated successfully (samples):", videoUri);
@@ -306,14 +381,13 @@ serve(async (req) => {
         attempt++;
       }
 
-      // Timeout
       return new Response(
         JSON.stringify({ error: "انتهت مهلة توليد الفيديو. يرجى المحاولة مرة أخرى." }),
         { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Direct response (synchronous)
+    // Direct response
     if (result.generatedSamples?.[0]?.video?.uri) {
       return new Response(
         JSON.stringify({ 
