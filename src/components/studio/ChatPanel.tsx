@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { OBrainLogo } from "@/components/OBrainLogo";
 import { OBrainIcon } from "@/components/OBrainIcon";
+import { ReferenceImage } from "@/types/reference";
 
 interface Message {
   role: "user" | "assistant";
@@ -15,7 +16,7 @@ interface ChatPanelProps {
   messages: Message[];
   onSendMessage: (message: string) => void;
   isLoading: boolean;
-  referenceImages: string[];
+  referenceImages: ReferenceImage[];
   hasError?: boolean;
   onRetry?: () => void;
 }
@@ -60,10 +61,10 @@ export function ChatPanel({ messages, onSendMessage, isLoading, referenceImages,
             <h3 className="font-semibold text-foreground">OBrain</h3>
             <p className="text-xs text-muted-foreground">مساعدك الإبداعي</p>
           </div>
-          {referenceImages.length > 0 && (
+          {referenceImages.filter(img => img.enabled).length > 0 && (
             <div className="mr-auto flex items-center gap-1 px-2 py-1 rounded-full bg-primary/20 text-xs text-primary">
               <Sparkles className="w-3 h-3" />
-              {referenceImages.length} صور للتحليل
+              {referenceImages.filter(img => img.enabled).length} صور للتحليل
             </div>
           )}
         </div>
