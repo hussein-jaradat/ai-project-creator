@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import Studio from "./pages/Studio";
 import Gallery from "./pages/Gallery";
 import AdminLogin from "./pages/AdminLogin";
+import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => {
             <BrowserRouter>
               <Routes>
                 <Route path="/" element={<Index />} />
+                <Route path="/auth" element={<Auth />} />
                 <Route path="/studio" element={<Studio />} />
                 <Route path="/gallery" element={<Gallery />} />
                 <Route path="/admin-login" element={<AdminLogin />} />

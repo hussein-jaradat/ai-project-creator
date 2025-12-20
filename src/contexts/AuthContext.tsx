@@ -2,13 +2,24 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
+interface Profile {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
+  provider: string | null;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
+  profile: Profile | null;
   isAdmin: boolean;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, fullName?: string) => Promise<{ error: Error | null }>;
+  signInWithGoogle: () => Promise<{ error: Error | null }>;
+  signInWithFacebook: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -17,8 +28,30 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch user profile
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error fetching profile:", error);
+        return null;
+      }
+
+      return data as Profile;
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+      return null;
+    }
+  };
 
   // Check admin role
   const checkAdminRole = async (userId: string) => {
@@ -49,12 +82,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(newSession);
         setUser(newSession?.user ?? null);
 
-        // Defer admin check with setTimeout to avoid deadlock
+        // Defer profile and admin check with setTimeout to avoid deadlock
         if (newSession?.user) {
           setTimeout(() => {
+            fetchProfile(newSession.user.id).then(setProfile);
             checkAdminRole(newSession.user.id).then(setIsAdmin);
           }, 0);
         } else {
+          setProfile(null);
           setIsAdmin(false);
         }
       }
@@ -66,7 +101,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(existingSession?.user ?? null);
 
       if (existingSession?.user) {
-        checkAdminRole(existingSession.user.id).then((admin) => {
+        Promise.all([
+          fetchProfile(existingSession.user.id),
+          checkAdminRole(existingSession.user.id)
+        ]).then(([profileData, admin]) => {
+          setProfile(profileData);
           setIsAdmin(admin);
           setIsLoading(false);
         });
@@ -83,23 +122,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error ? new Error(error.message) : null };
   };
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string, fullName?: string) => {
     const redirectUrl = `${window.location.origin}/`;
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: redirectUrl }
+      options: {
+        emailRedirectTo: redirectUrl,
+        data: {
+          full_name: fullName,
+        }
+      }
+    });
+    return { error: error ? new Error(error.message) : null };
+  };
+
+  const signInWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/`
+      }
+    });
+    return { error: error ? new Error(error.message) : null };
+  };
+
+  const signInWithFacebook = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'facebook',
+      options: {
+        redirectTo: `${window.location.origin}/`
+      }
     });
     return { error: error ? new Error(error.message) : null };
   };
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    setProfile(null);
     setIsAdmin(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, isAdmin, isLoading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{
+      user,
+      session,
+      profile,
+      isAdmin,
+      isLoading,
+      signIn,
+      signUp,
+      signInWithGoogle,
+      signInWithFacebook,
+      signOut
+    }}>
       {children}
     </AuthContext.Provider>
   );
