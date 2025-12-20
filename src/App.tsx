@@ -11,6 +11,7 @@ import Index from "./pages/Index";
 import Studio from "./pages/Studio";
 import Gallery from "./pages/Gallery";
 import Profile from "./pages/Profile";
+import UserDashboard from "./pages/UserDashboard";
 import AdminLogin from "./pages/AdminLogin";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -37,6 +38,11 @@ const App = () => {
                 <Route path="/auth" element={<Auth />} />
                 
                 {/* Protected Routes - Require Authentication */}
+                <Route path="/dashboard" element={
+                  <ProtectedRoute>
+                    <UserDashboard />
+                  </ProtectedRoute>
+                } />
                 <Route path="/studio" element={
                   <ProtectedRoute>
                     <Studio />

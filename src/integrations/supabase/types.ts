@@ -600,6 +600,7 @@ export type Database = {
           id: string
           provider: string | null
           updated_at: string | null
+          user_code: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -609,6 +610,7 @@ export type Database = {
           id: string
           provider?: string | null
           updated_at?: string | null
+          user_code?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -618,6 +620,7 @@ export type Database = {
           id?: string
           provider?: string | null
           updated_at?: string | null
+          user_code?: string | null
         }
         Relationships: []
       }
@@ -813,6 +816,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_user_code: { Args: never; Returns: string }
       get_user_workspace_ids: { Args: { _user_id: string }; Returns: string[] }
       has_role: {
         Args: {
