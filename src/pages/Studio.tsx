@@ -12,7 +12,6 @@ import { ChatHistory } from "@/components/studio/ChatHistory";
 import { useChatHistory } from "@/hooks/useChatHistory";
 import { supabase } from "@/integrations/supabase/client";
 import { OBrainLogo } from "@/components/OBrainLogo";
-import { useAuth } from "@/contexts/AuthContext";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 const GENERATE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-image`;
@@ -40,9 +39,7 @@ interface GenerationSummary {
 type ActionType = "image" | "video" | null;
 
 export default function Studio() {
-  // Auth - determines viewing mode
-  const { isAdmin, isLoading: authLoading } = useAuth();
-  const viewingMode = !isAdmin;
+  // Chat History Hook
   // Chat History Hook
   const {
     conversations,
@@ -558,7 +555,6 @@ export default function Studio() {
             isGenerating={isGenerating}
             onGenerate={handleGenerate}
             canGenerate={canGenerate}
-            viewingMode={viewingMode}
           />
         </motion.aside>
 
@@ -576,7 +572,6 @@ export default function Studio() {
               referenceImages={referenceImages}
               hasError={chatError}
               onRetry={handleRetry}
-              viewingMode={viewingMode}
             />
           </div>
           
@@ -600,7 +595,6 @@ export default function Studio() {
           <ReferencePanel
             images={referenceImages}
             onImagesChange={setReferenceImages}
-            viewingMode={viewingMode}
           />
         </motion.aside>
       </div>
