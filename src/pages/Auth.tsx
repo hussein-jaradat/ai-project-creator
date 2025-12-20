@@ -36,7 +36,7 @@ export default function Auth() {
   // Redirect if already authenticated
   useEffect(() => {
     if (user && !authLoading) {
-      navigate('/studio');
+      navigate('/dashboard');
     }
   }, [user, authLoading, navigate]);
 
@@ -88,7 +88,7 @@ export default function Auth() {
         }
         toast.success('تم إنشاء الحساب بنجاح');
       }
-      navigate('/studio');
+      navigate('/dashboard');
     } catch (error) {
       toast.error('حدث خطأ غير متوقع');
     } finally {
