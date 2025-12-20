@@ -6,14 +6,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { AuthProvider } from "@/contexts/AuthContext";
-import ViewingModeIndicator from "@/components/ViewingModeIndicator";
 import Index from "./pages/Index";
 import Studio from "./pages/Studio";
 import Gallery from "./pages/Gallery";
 import AdminLogin from "./pages/AdminLogin";
 import NotFound from "./pages/NotFound";
 
-// Force reload
 const queryClient = new QueryClient();
 
 const App = () => {
@@ -30,7 +28,6 @@ const App = () => {
             <Toaster />
             <Sonner />
             <BrowserRouter>
-              <ViewingModeIndicator />
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/studio" element={<Studio />} />
