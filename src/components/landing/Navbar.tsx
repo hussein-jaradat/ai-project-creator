@@ -3,6 +3,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { Button } from '@/components/ui/button';
 import { OBrainLogo } from '@/components/OBrainLogo';
+import { LogIn, UserPlus } from 'lucide-react';
 
 export function Navbar() {
   const { t } = useLanguage();
@@ -31,13 +32,22 @@ export function Navbar() {
         <div className="flex items-center gap-3">
           <LanguageToggle />
           <Link to="/auth">
-            <Button variant="ghost" size="sm">
-              {t('nav.login')}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="gap-2 border-2 border-primary/50 text-primary hover:bg-primary/10 hover:border-primary transition-all duration-300"
+            >
+              <LogIn className="w-4 h-4" />
+              <span className="hidden sm:inline">{t('nav.login')}</span>
             </Button>
           </Link>
           <Link to="/auth?mode=signup">
-            <Button variant="hero" size="sm">
-              {t('nav.signup')}
+            <Button 
+              size="sm"
+              className="gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-[0_0_15px_rgba(139,92,246,0.4)] hover:shadow-[0_0_25px_rgba(139,92,246,0.6)] transition-all duration-300"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span className="hidden sm:inline">{t('nav.signup')}</span>
             </Button>
           </Link>
         </div>
