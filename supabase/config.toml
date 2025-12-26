@@ -17,3 +17,15 @@ verify_jwt = false
 
 [functions.campaign-director]
 verify_jwt = false
+
+[functions.trend-research]
+verify_jwt = false
+
+[functions.content-analyzer]
+verify_jwt = false
+
+[functions.auto-generate-content]
+verify_jwt = false
+
+[functions.automation-webhook]
+verify_jwt = false

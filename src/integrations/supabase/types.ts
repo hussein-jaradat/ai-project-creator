@@ -152,6 +152,99 @@ export type Database = {
           },
         ]
       }
+      automation_jobs: {
+        Row: {
+          analyzed_ideas: Json | null
+          created_at: string
+          error_message: string | null
+          generated_caption: string | null
+          generated_prompt: string | null
+          generated_video_url: string | null
+          id: string
+          publish_status: Json | null
+          research_query: string | null
+          research_results: Json | null
+          scheduled_at: string | null
+          selected_idea: Json | null
+          status: string
+          target_platforms: string[] | null
+          updated_at: string
+          user_id: string
+          webhook_url: string | null
+        }
+        Insert: {
+          analyzed_ideas?: Json | null
+          created_at?: string
+          error_message?: string | null
+          generated_caption?: string | null
+          generated_prompt?: string | null
+          generated_video_url?: string | null
+          id?: string
+          publish_status?: Json | null
+          research_query?: string | null
+          research_results?: Json | null
+          scheduled_at?: string | null
+          selected_idea?: Json | null
+          status?: string
+          target_platforms?: string[] | null
+          updated_at?: string
+          user_id: string
+          webhook_url?: string | null
+        }
+        Update: {
+          analyzed_ideas?: Json | null
+          created_at?: string
+          error_message?: string | null
+          generated_caption?: string | null
+          generated_prompt?: string | null
+          generated_video_url?: string | null
+          id?: string
+          publish_status?: Json | null
+          research_query?: string | null
+          research_results?: Json | null
+          scheduled_at?: string | null
+          selected_idea?: Json | null
+          status?: string
+          target_platforms?: string[] | null
+          updated_at?: string
+          user_id?: string
+          webhook_url?: string | null
+        }
+        Relationships: []
+      }
+      automation_settings: {
+        Row: {
+          auto_publish: boolean | null
+          created_at: string
+          default_platforms: string[] | null
+          id: string
+          search_keywords: string[] | null
+          updated_at: string
+          user_id: string
+          webhook_url: string | null
+        }
+        Insert: {
+          auto_publish?: boolean | null
+          created_at?: string
+          default_platforms?: string[] | null
+          id?: string
+          search_keywords?: string[] | null
+          updated_at?: string
+          user_id: string
+          webhook_url?: string | null
+        }
+        Update: {
+          auto_publish?: boolean | null
+          created_at?: string
+          default_platforms?: string[] | null
+          id?: string
+          search_keywords?: string[] | null
+          updated_at?: string
+          user_id?: string
+          webhook_url?: string | null
+        }
+        Relationships: []
+      }
       brand_kits: {
         Row: {
           additional_guidelines: string | null
